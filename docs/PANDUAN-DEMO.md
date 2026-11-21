@@ -167,7 +167,7 @@ docker compose stop scheduler
 powershell -ExecutionPolicy Bypass -File scripts/test-all.ps1
 docker compose start scheduler
 ```
-Hasil: **unit 47 · integration 12 · e2e 3 = 62 passed**.
+Hasil: **unit 81 · integration 19 · e2e 3 = 103 passed** + dashboard **5** Playwright.
 
 ---
 

@@ -29,7 +29,7 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 | **SATUSEHAT sandbox NYATA (rantai penuh)** | ✅ Terbukti via `probe_satusehat.py` (Encounter+Condition+Observation 201 Created) |
 | Dashboard Next.js (shadcn + grafik) | ✅ Build + serve HTTP 200 |
 | Dua arah OpenMRS↔OpenEMR + conflict detection | ✅ Terbukti (mapping dua arah + conflict tercatat) |
-| Test otomatis (unit 47 + integration 12 + e2e 3) | ✅ 62 hijau |
+| Test otomatis (unit 81 + integration 19 + e2e 3) + Playwright dashboard 5 | ✅ 103 + 5 hijau |
 | Hardening (normalisasi error, retensi payload, rate limit aktif) | ✅ Selesai |
 | CI (GitHub Actions) + skrip test-all | ✅ Selesai |
 | Profil EHR asli (compose profile) | ✅ Siap (opsional, berat) |
@@ -38,6 +38,14 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 | Deployment demo (7 service up + demo.ps1) | ✅ Terbukti |
 
 **Kesimpulan fase 1: MVP 3-resource end-to-end (mock) SELESAI dan terverifikasi.**
+
+### Milestone lanjutan (SELESAI) — rilis v2.0.0
+| Milestone | Isi | Status |
+|-----------|-----|--------|
+| **v1.1 — Integrasi EHR nyata** | OpenEMR nyata (password grant), OpenMRS reference-app end-to-end (Patient/Encounter/Observation terverifikasi di DB), update-flow, seed refresh, dashboard pagination | ✅ Selesai (3/3) |
+| **v1.2 — Validasi & kepatuhan SATUSEHAT** | Multi-diagnosis → Condition, HAPI profile-gate, inbound selective pull, UX SSRME | ✅ Selesai (4/4) |
+| **v2.0 — Kesiapan produksi** | Alembic (migrasi + baseline), security headers/HTTPS/host-allowlist/TLS, observability (Prometheus/metrics), mock persistence, Redis rate-limit, RBAC 3 peran + login UI | ✅ Selesai (6/6) |
+| **Future / Backlog** | docs/api + contoh curl, coverage gate 50% (pytest-cov), dark mode toggle, Playwright e2e + a11y (axe) | ✅ Selesai (4/4) |
 
 ---
 
@@ -69,7 +77,7 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 ## 5. FASE INTEGRASI EHR ASLI — Siap (opsional) ✅
 - [x] `docker-compose.ehr.yml` (profil `ehr`): OpenMRS + OpenEMR + DB masing-masing
 - [x] Panduan di `docs/runbook.md`
-- [ ] Eksekusi runtime nyata (berat; dijalankan sesuai kapasitas mesin/demo)
+- [x] Eksekusi runtime nyata (OpenMRS reference-app & OpenEMR; sesuai kapasitas mesin/demo)
 
 ## 6. FASE SATUSEHAT SANDBOX — SELESAI ✅ (terbukti, termasuk otomatis)
 - [x] Kredensial sandbox fasyankes diverifikasi (token + Organization valid)
@@ -79,14 +87,14 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
       & Observation (dengan referensi Encounter hasil mapping) → sukses; mapping Encounter disimpan
 - [x] Resolve IHS pasien (verified mapping / MPI by NIK) + verifikasi Patient di SATUSEHAT
 - [x] Unit test builder (aturan wajib) ditambahkan
-- [ ] (opsional) pilihan use case/diagnosis nyata, multi-Observation, tombol SSRME
+- [x] Pilihan use case/diagnosis nyata, multi-Observation, tombol SSRME (CHLink/SHLink)
 
-## 7. Backlog Teknis
-- [ ] `_lastUpdated` polling: samakan zona waktu/format antar sistem
-- [ ] Conflict detection untuk alur update (MVP saat ini create-only)
-- [ ] Normalisasi error: petakan OperationOutcome → pesan ringkas
-- [ ] HAPI validator container (validasi profil nyata)
-- [ ] Rate limiting & retensi payload
+## 7. Backlog Teknis — Selesai ✅
+- [x] `_lastUpdated` polling: samakan zona waktu/format antar sistem (v1.0)
+- [x] Conflict detection untuk alur update (v1.1)
+- [x] Normalisasi error: petakan OperationOutcome → pesan ringkas (v1.0)
+- [x] HAPI validator container (validasi profil nyata) (v1.2)
+- [x] Rate limiting (memory default + Redis opt-in) & retensi payload (v2.0)
 
 ## 8. Pemetaan Timeline Proposal
 | Minggu | Fokus | Status |
@@ -104,4 +112,4 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 - [x] Management API + dashboard (6 tab) berfungsi
 - [x] Laporan metrik
 - [x] Dokumentasi + runbook
-- [x] Test otomatis hijau (62)
+- [x] Test otomatis hijau (103 backend + 5 Playwright dashboard)

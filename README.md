@@ -1,11 +1,12 @@
 # Middleware Interoperabilitas HL7 FHIR
 
-Prototipe middleware **hub-and-spoke** yang menghubungkan **OpenMRS**, **OpenEMR**,
-dan **SATUSEHAT** melalui pertukaran **HL7 FHIR R4** untuk resource **Patient,
-Encounter, Observation**.
+Middleware **hub-and-spoke** yang menghubungkan **OpenMRS**, **OpenEMR**, dan
+**SATUSEHAT** melalui pertukaran **HL7 FHIR R4** untuk resource **Patient,
+Encounter, Observation** (dan **Condition** untuk diagnosis).
 
 > Middleware berdiri sebagai aplikasi independen dan **tidak menyimpan data klinis** —
 > hanya metadata integrasi (identity mapping, status pekerjaan, kebijakan, audit).
+> Versi terkini: **v2.0.0**.
 
 ## Arsitektur singkat
 
@@ -15,6 +16,33 @@ Adapter Layer  →  Interoperability Core  →  Processing & Management Layer
 ```
 
 Detail: lihat `docs/architecture.md` dan roadmap di `docs/ROADMAP.md`.
+
+## Fitur utama
+
+**Integrasi**
+- Adapter **OpenMRS**, **OpenEMR**, dan **SATUSEHAT** — mock-aware: dapat dijalankan
+  sebagai simulasi (mock) atau koneksi **nyata**.
+- Integrasi **nyata**: OpenEMR (OAuth password grant) & OpenMRS (reference-app) end-to-end;
+  Patient/Encounter/Observation terverifikasi mendarat di database target.
+- **Sinkronisasi dua arah** OpenMRS↔OpenEMR dengan deteksi konflik berbasis versi.
+
+**Kepatuhan SATUSEHAT**
+- Multi-diagnosis → **Condition** dalam transaction Bundle.
+- **HAPI validator** profile-gate (validasi profil FHIR nyata sebelum kirim).
+- **Inbound selektif** (pull read-only / policy berkala) dari SATUSEHAT.
+- **SSRME**: CHLink (consent) & SHLink (akses RME/darurat).
+
+**Kesiapan produksi**
+- Migrasi skema via **Alembic** (baseline + stamping DB yang sudah ada).
+- **Security headers**, HTTPS/host-allowlist, TLS.
+- **Observability**: metrik Prometheus + endpoint metrics/timeline.
+- **Rate limiting** (memory default, **Redis** opt-in untuk multi-instance).
+- **RBAC 3 peran** (admin > operator > viewer) + login UI.
+
+**Kualitas & operasional**
+- **Coverage gate** 50% di CI (pytest-cov) + artifact laporan coverage.
+- **Playwright e2e + a11y** (axe-core) untuk dashboard.
+- **Dashboard** 6 tab, responsif, **dark mode** (persist), pagination.
 
 ## Quickstart (5 menit)
 
@@ -85,6 +113,10 @@ scripts/    Skrip demo/verifikasi
 
 ## Status & batasan
 
-Prototipe untuk **lingkungan pengembangan/demonstrasi**, bukan produksi klinis.
-Data uji **sintetis**. Integrasi SATUSEHAT default **mock** (bukan transaksi nyata).
-Lihat `docs/ROADMAP.md` untuk progres dan backlog.
+Rilis **v2.0.0** — siap untuk **lingkungan pengembangan/demonstrasi** dan telah diperkuat
+untuk kesiapan produksi (Alembic, security headers/HTTPS, observability, Redis rate-limit, RBAC).
+**Bukan** untuk produksi klinis. Data uji **sintetis**. Mode default tetap **mock**; integrasi
+nyata (OpenMRS/OpenEMR/SATUSEHAT sandbox) diaktifkan via `.env`. Kredensial hanya di `.env`
+(gitignored), tidak pernah masuk repo.
+
+Lihat `docs/ROADMAP.md` untuk status milestone (v1.0–v2.0 selesai).
