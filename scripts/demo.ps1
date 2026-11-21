@@ -15,12 +15,17 @@ docker compose exec -T db psql -U middleware -d middleware `
   -c "TRUNCATE sync_jobs, job_attempts, conflicts, audit_log RESTART IDENTITY CASCADE;" | Out-Null
 
 $patient = @{ resourceType="Patient"; identifier=@(@{system="http://openmrs.org/mrn"; value="MRN-001"});
-              name=@(@{family="Santoso"; given=@("Budi")}); gender="male"; birthDate="1985-04-12" }
+              name=@(@{text="Budi Santoso"}) }
 $encounter = @{ resourceType="Encounter"; status="finished";
                 "class"=@{system="http://terminology.hl7.org/CodeSystem/v3-ActCode"; code="AMB"};
-                subject=@{reference="Patient/MRN-001"}; period=@{start="2026-01-10T09:00:00+00:00"} }
+                subject=@{reference="Patient/MRN-001"}; period=@{start="2026-01-10T09:00:00+00:00"};
+                serviceProvider=@{reference="Organization/1000001"};
+                statusHistory=@(@{status="finished"; period=@{start="2026-01-10T09:00:00+00:00"; end="2026-01-10T09:30:00+00:00"}});
+                diagnosis=@(@{condition=@{reference="Condition/example"};
+                              use=@{coding=@(@{system="http://terminology.hl7.org/CodeSystem/diagnosis-role"; code="billing"})}}) }
 $obs = @{ resourceType="Observation"; status="final"; code=@{text="body_temp"};
           subject=@{reference="Patient/MRN-001"}; effectiveDateTime="2026-01-10T09:15:00+00:00";
+          issued="2026-01-10T09:15:00+00:00";
           valueQuantity=@{value=36.8; unit="Cel"} }
 
 Write-Host "== Enqueue 5 job ==" -ForegroundColor Cyan
