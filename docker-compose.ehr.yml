@@ -24,12 +24,13 @@ services:
     image: openmrs/openmrs-reference-application-distro:latest
     profiles: ["ehr"]
     environment:
-      OMRS_DB_HOSTNAME: openmrs-db
-      OMRS_DB_NAME: openmrs
-      OMRS_DB_USERNAME: openmrs
-      OMRS_DB_PASSWORD: openmrs
-      OMRS_ADMIN_USER_PASSWORD: Admin123
-      OMRS_JAVA_SERVER_OPTS: "-Xmx2048m"
+      DB_HOST: openmrs-db
+      DB_DATABASE: openmrs
+      DB_USERNAME: openmrs
+      DB_PASSWORD: openmrs
+      DB_CREATE_TABLES: "true"
+      DB_AUTO_UPDATE: "true"
+      JAVA_OPTS: "-Xmx1800m -XX:MaxMetaspaceSize=512m"
     ports:
       - "8090:8080"
     depends_on:

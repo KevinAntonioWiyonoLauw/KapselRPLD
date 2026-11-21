@@ -437,10 +437,11 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
         # 1. Identity resolution for cross-system targets
         #    - satusehat: any resource needs the IHS number (Patient attaches it,
         #      others reference Patient/{ihs}).
-        #    - openemr: non-Patient resources need the subject mapped to local id.
+        #    - openemr/openmrs: non-Patient resources need the subject mapped to a
+        #      local target id (OpenMRS requires Patient/<uuid> references).
         needs_identity = (
             (target.name == "satusehat")
-            or (target.name == "openemr" and job.resource_type != "Patient")
+            or (target.name in ("openemr", "openmrs") and job.resource_type != "Patient")
         )
         if needs_identity and src_pid:
             mapping = identity.resolve(

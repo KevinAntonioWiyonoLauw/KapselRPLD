@@ -48,9 +48,25 @@ def _mk_job(db, obs):
     return job
 
 
+def _ensure_patient_mapping(db, pid):
+    """OpenMRS non-Patient resources need the subject mapped to a target uuid."""
+    from app.models import IdentifierMapping
+    src = sync.get_system(db, "openmrs")
+    tgt = sync.get_system(db, "openmrs")
+    exists = db.query(IdentifierMapping).filter_by(
+        resource_type="Patient", source_system_id=src.id, target_system_id=tgt.id,
+        source_identifier=pid).first()
+    if not exists:
+        db.add(IdentifierMapping(resource_type="Patient", source_system_id=src.id,
+                                 target_system_id=tgt.id, source_identifier=pid,
+                                 target_identifier=f"uuid-{pid}", validation_status="verified"))
+        db.commit()
+
+
 @pytest.mark.asyncio
 async def test_identical_observation_not_duplicated(db_session):
     pid = f"P{uuid.uuid4().hex[:8]}"
+    _ensure_patient_mapping(db_session, pid)
     obs = {
         "resourceType": "Observation",
         "status": "final",

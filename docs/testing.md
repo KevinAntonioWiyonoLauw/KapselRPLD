@@ -4,8 +4,8 @@
 
 | Suite | Lokasi | Jumlah | Status |
 |-------|--------|--------|--------|
-| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, audit fixes) | `backend/tests/unit` | 47 | ✅ lulus |
-| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline) | `backend/tests/integration` | 12 | ✅ lulus |
+| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, audit fixes) | `backend/tests/unit` | 49 | ✅ lulus |
+| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline) | `backend/tests/integration` | 13 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
 
 Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
@@ -27,15 +27,16 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 | TC-11 | **Kirim ke SATUSEHAT sandbox NYATA (otomatis)** | ✅ Worker: Encounter→Bundle(Encounter+Condition) sukses; Observation→sukses; terverifikasi GET di sandbox |
 | TC-12 | **Sinkronisasi dua arah OpenMRS↔OpenEMR** | ✅ OpenMRS→OpenEMR & OpenEMR→OpenMRS sukses; mapping dua arah tersimpan |
 | TC-13 | **Deteksi konflik** | ✅ Nilai sumber≠tujuan → job `needs_review` + tercatat di `/conflicts` |
+| TC-14 | **Kirim Patient+Encounter+Observation ke OpenMRS NYATA** | ✅ Patient/Encounter/Observation `success`, terverifikasi di DB OpenMRS (lihat `docs/openmrs-real-integration.md`) |
 
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
-| Unit | 47 | transform (termasuk aturan OpenEMR), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder, conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3) |
-| Integration | 12 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) |
+| Unit | 49 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder, conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3) |
+| Integration | 13 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) + openmrs pipeline (identifier preferred + Encounter.type UUID + subject→uuid) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **62 test lulus** (47 + 12 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **65 test lulus** (49 + 13 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:
@@ -54,6 +55,25 @@ enqueue Observation(encounter=ENC-SRC-1) → satusehat ⇒ success (referensi En
 GET /Encounter/{id} & /Observation?subject=... di sandbox ⇒ data benar-benar ada
 ```
 Detail flow, aturan wajib (rule number), dan payload: `docs/satusehat-integration.md`.
+
+## Bukti OpenMRS NYATA (reference application)
+Integrasi **sungguhan ke OpenMRS** (image `openmrs/openmrs-reference-application-distro`, FHIR2 R4) telah dijalankan dan lulus end-to-end lewat middleware:
+
+```
+enqueue Patient     (openemr→openmrs) ⇒ success
+enqueue Encounter   (openemr→openmrs) ⇒ success
+enqueue Observation (openemr→openmrs) ⇒ success
+verifikasi DB OpenMRS: patient_id 22, encounter 1, obs 1 (value 78)
+```
+
+Aturan FHIR2 yang dipenuhi transform (temuan nyata, bukan asumsi):
+- `Patient.identifier`: `use=official` (preferred) + `type.text` = nama tipe identifier
+  + `system` terdaftar di `fhir_patient_identifier_system` + extension
+  `.../ext/patient/identifier#location` → `Location/{uuid}`.
+- `Encounter.type`: coding sistem `http://fhir.openmrs.org/code-system/encounter-type`
+  dengan `code` = UUID encounter-type.
+- `Observation`: `code` LOINC dipetakan ke concept lewat `fhir_concept_source`.
+Detail prasyarat, penyiapan, dan bukti: `docs/openmrs-real-integration.md`.
 
 ## Metrik (dari run demo mock)
 

@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     openmrs_username: str = "admin"
     openmrs_password: str = "Admin123"
     openmrs_mock_url: str = "http://mock-ehr:8100/openmrs"
+    # FHIR2 create rules (verified against the reference application):
+    #  - Patient.identifier needs a preferred (use=official) identifier, a
+    #    resolvable type, and a location extension, otherwise FHIR2 rejects it
+    #    with "Select a preferred identifier" / "Identifier Location cannot be null".
+    #  - Encounter.type must reference an encounter-type UUID via the
+    #    fhir.openmrs.org/code-system/encounter-type system.
+    openmrs_identifier_system: str = "http://openmrs.org/mrn"
+    openmrs_identifier_type_name: str = "Old Identification Number"
+    # "Unknown Location" uuid (standard OpenMRS reference data, non-secret).
+    openmrs_default_location_uuid: str = "8d6c993e-c2cc-11de-8d13-0010c6dffd0f"
+    openmrs_encounter_type_uuid: str = "d7151f82-c1f3-4152-a605-2f9ea7414a79"  # Visit Note
+    openmrs_encounter_type_name: str = "Visit Note"
 
     # OpenEMR
     openemr_enabled: bool = True

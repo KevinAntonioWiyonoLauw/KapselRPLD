@@ -10,7 +10,12 @@ from __future__ import annotations
 
 import copy
 
+from app.config import settings
 from app.core import terminology
+
+# OpenMRS FHIR2 code system URIs (verified against the reference application).
+_OMRS_ENCOUNTER_TYPE_SYSTEM = "http://fhir.openmrs.org/code-system/encounter-type"
+_OMRS_IDENTIFIER_LOCATION_EXT = "http://fhir.openmrs.org/ext/patient/identifier#location"
 
 
 class TransformError(Exception):
@@ -22,6 +27,30 @@ def _rewrite_subject(resource: dict, ctx: dict) -> None:
         resource["subject"] = {"reference": ctx["patient_ref"]}
     if ctx.get("encounter_ref") and resource.get("resourceType") == "Observation":
         resource["encounter"] = {"reference": ctx["encounter_ref"]}
+
+
+def _openmrs_identifier(identifier: dict) -> dict:
+    """Normalise one Patient.identifier for OpenMRS FHIR2 create.
+
+    FHIR2 requires: a preferred (use=official) identifier, a resolvable type
+    (matched via ``type.text`` == OpenMRS identifier-type name), the registered
+    ``identifier.system`` (see fhir_patient_identifier_system), and a location
+    extension. Without these it rejects the create.
+    """
+    ident = dict(identifier)
+    ident["use"] = "official"
+    ident.setdefault("system", settings.openmrs_identifier_system)
+    # FHIR2 resolves the identifier type from type.text (the OpenMRS type name).
+    ident["type"] = {"text": settings.openmrs_identifier_type_name}
+    if settings.openmrs_default_location_uuid:
+        exts = [e for e in (ident.get("extension") or [])
+                if e.get("url") != _OMRS_IDENTIFIER_LOCATION_EXT]
+        exts.append({
+            "url": _OMRS_IDENTIFIER_LOCATION_EXT,
+            "valueReference": {"reference": f"Location/{settings.openmrs_default_location_uuid}"},
+        })
+        ident["extension"] = exts
+    return ident
 
 
 def transform_patient(resource: dict, target_system: str, ctx: dict) -> dict:
@@ -36,6 +65,9 @@ def transform_patient(resource: dict, target_system: str, ctx: dict) -> dict:
         if ctx.get("nik"):
             out["identifier"].append({"system": "https://fhir.kemkes.go.id/id/nik",
                                       "value": ctx["nik"]})
+    # OpenMRS FHIR2 needs a preferred identifier (type + system + location).
+    if target_system == "openmrs" and out.get("identifier"):
+        out["identifier"] = [_openmrs_identifier(out["identifier"][0])]
     # OpenEMR maps only a name with use=official to first/last name fields.
     if target_system == "openemr" and out.get("name"):
         if not any((n or {}).get("use") == "official" for n in out["name"]):
@@ -46,13 +78,15 @@ def transform_patient(resource: dict, target_system: str, ctx: dict) -> dict:
 def transform_encounter(resource: dict, target_system: str, ctx: dict) -> dict:
     out = copy.deepcopy(resource)
     _rewrite_subject(out, ctx)
-    # OpenMRS requires Encounter.type with a recognised code system (K3).
-    if target_system == "openmrs" and not out.get("type"):
+    # OpenMRS requires Encounter.type referencing an encounter-type UUID via the
+    # fhir.openmrs.org/code-system/encounter-type system (verified: any other
+    # coding is rejected with "Invalid type of request").
+    if target_system == "openmrs":
         out["type"] = [{
             "coding": [{
-                "system": "http://fhir.openmrs.org/code-system/Encounter",
-                "code": "VISIT",
-                "display": "Visit",
+                "system": _OMRS_ENCOUNTER_TYPE_SYSTEM,
+                "code": settings.openmrs_encounter_type_uuid,
+                "display": settings.openmrs_encounter_type_name,
             }]
         }]
     return out
