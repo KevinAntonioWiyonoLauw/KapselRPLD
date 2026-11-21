@@ -6,7 +6,6 @@ enqueues sync jobs to the policy target. Uses _lastUpdated to fetch recent chang
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 
@@ -14,6 +13,7 @@ from app.adapters.registry import get_adapter
 from app.config import settings
 from app.db.session import SessionLocal
 from app.models import ExternalSystem, SyncPolicy
+from app.scheduler.timeutil import fhir_last_updated
 from app.services.sync import enqueue_job, get_system
 
 log = logging.getLogger("poller")
@@ -29,7 +29,7 @@ async def poll_once(lookback_minutes: int = 10) -> int:
         policies = db.execute(
             select(SyncPolicy).where(SyncPolicy.enabled.is_(True))
         ).scalars().all()
-        since = (datetime.now(timezone.utc) - timedelta(minutes=lookback_minutes)).isoformat()
+        since = fhir_last_updated(lookback_minutes=lookback_minutes)
 
         for policy in policies:
             source = db.get(ExternalSystem, policy.source_system_id)
