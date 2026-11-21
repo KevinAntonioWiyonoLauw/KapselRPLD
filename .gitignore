@@ -13,6 +13,9 @@ node_modules/
 .next/
 out/
 npm-debug.log*
+/playwright-report/
+/test-results/
+/playwright/.cache/
 
 # ===== Env & secrets =====
 .env
