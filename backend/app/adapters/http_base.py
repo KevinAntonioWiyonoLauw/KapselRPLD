@@ -1,33 +1,15 @@
 """Shared HTTP plumbing for FHIR adapters (HTTPX)."""
 from __future__ import annotations
 
-import json
-
 import httpx
 
 from app.adapters.base import AdapterResult, make_error
+from app.core.errors import error_message, summarize_operation_outcome
 
 
 def summarize_error_body(text: str, limit: int = 800) -> str:
     """Normalize FHIR OperationOutcome / fault bodies into a concise message."""
-    if not text:
-        return ""
-    try:
-        data = json.loads(text)
-    except Exception:  # noqa: BLE001
-        return text[:limit]
-    msgs: list[str] = []
-    for issue in data.get("issue", []) or []:
-        txt = (issue.get("details") or {}).get("text") or issue.get("diagnostics")
-        if txt:
-            rule = issue.get("expression")
-            msgs.append(f"{txt}" + (f" {rule}" if rule else ""))
-    fault = data.get("fault")
-    if fault:
-        msgs.append(fault.get("faultstring", "fault"))
-    if data.get("message"):
-        msgs.append(str(data["message"]))
-    return (" | ".join(msgs) or text)[:limit]
+    return summarize_operation_outcome(text, limit=limit)
 
 
 class HttpFhirAdapter:
@@ -52,20 +34,25 @@ class HttpFhirAdapter:
 
         status = resp.status_code
         if status in (401, 403):
+            summ = summarize_error_body(resp.text)
             return AdapterResult(ok=False, http_status=status, error=make_error(
-                "auth", "Autentikasi/otorisasi ditolak", retryable=False, detail=summarize_error_body(resp.text)))
+                "auth", error_message("Autentikasi/otorisasi ditolak", summ), retryable=False, detail=summ))
         if status == 404:
+            summ = summarize_error_body(resp.text)
             return AdapterResult(ok=False, http_status=status, error=make_error(
-                "not_found", "Resource tidak ditemukan", retryable=False, detail=summarize_error_body(resp.text)))
+                "not_found", error_message("Resource tidak ditemukan", summ), retryable=False, detail=summ))
         if status in (400, 422):
+            summ = summarize_error_body(resp.text)
             return AdapterResult(ok=False, http_status=status, error=make_error(
-                "validation", "Data ditolak oleh server tujuan", retryable=False, detail=summarize_error_body(resp.text)))
+                "validation", error_message("Data ditolak oleh server tujuan", summ), retryable=False, detail=summ))
         if status >= 500:
+            summ = summarize_error_body(resp.text)
             return AdapterResult(ok=False, http_status=status, error=make_error(
-                "server", "Kesalahan server tujuan", retryable=True, detail=summarize_error_body(resp.text)))
+                "server", error_message("Kesalahan server tujuan", summ), retryable=True, detail=summ))
         if status >= 400:
+            summ = summarize_error_body(resp.text)
             return AdapterResult(ok=False, http_status=status, error=make_error(
-                "unknown", f"Respons tak terduga ({status})", retryable=False, detail=summarize_error_body(resp.text)))
+                "unknown", error_message(f"Respons tak terduga ({status})", summ), retryable=False, detail=summ))
 
         body = resp.json() if resp.content else {}
         if body.get("resourceType") == "Bundle":
