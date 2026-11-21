@@ -244,10 +244,10 @@ async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) 
                 job.last_error = "Gagal menyiapkan Location"
                 _schedule_retry(job, job.attempt_count); record("temp_error", err=job.last_error)
                 return job
-            icd, disp = _icd_from_resource(resource)
+            diagnoses = _diagnoses_from_resource(resource)
             bundle, enc_uuid = ss_builder.build_encounter_condition_bundle(
                 org=org, patient_ihs=ihs, practitioner_ihs=prac, location_id=loc,
-                icd10=icd, icd10_display=disp)
+                diagnoses=diagnoses or None)
             res = await ss.transaction(bundle)
             if res.ok:
                 enc_id = None
@@ -365,20 +365,52 @@ def _encounter_target_ref(db: Session, job: SyncJob, resource: dict, source, tar
     return f"Encounter/{m.target_identifier}"
 
 
-def _icd_from_resource(resource: dict) -> tuple[str | None, str | None]:
-    """Extract an ICD-10 diagnosis from the source Encounter payload if present.
+def _diagnoses_from_resource(resource: dict) -> list[tuple[str, str]]:
+    """Extract all ICD-10 diagnoses from the source Encounter payload.
 
-    Supports: custom fields diagnosis_code/icd10, or Encounter.reasonCode coding
-    with an ICD-10 system. Returns (code, display) or (None, None) to use default.
+    Supports (in priority order):
+    - ``diagnoses``: list of {code, display} or [code, display]
+    - custom fields ``diagnosis_code``/``icd10`` (+ ``diagnosis_display``)
+    - ``reasonCode`` codings with an ICD-10 system (all of them)
+    - ``Condition`` resources embedded with an ICD-10 coding
+    Returns a de-duplicated ordered list of (code, display). Empty list means the
+    caller should fall back to the configured default diagnosis.
     """
+    out: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    def add(code, display):
+        code = (code or "").strip()
+        if code and code not in seen:
+            seen.add(code)
+            out.append((code, display or code))
+
+    # 1) explicit structured list
+    for d in resource.get("diagnoses", []) or []:
+        if isinstance(d, dict):
+            add(d.get("code") or d.get("icd10"), d.get("display"))
+        elif isinstance(d, (list, tuple)) and d:
+            add(d[0], d[1] if len(d) > 1 else None)
+
+    # 2) single custom fields
     diag = resource.get("diagnosis_code") or resource.get("icd10")
     if isinstance(diag, str) and diag.strip():
-        return diag.strip(), resource.get("diagnosis_display")
+        add(diag, resource.get("diagnosis_display"))
+
+    # 3) reasonCode codings (all ICD-10 entries)
     for rc in resource.get("reasonCode", []) or []:
         for c in rc.get("coding", []) or []:
             if c.get("system", "").endswith("icd-10") and c.get("code"):
-                return c["code"], c.get("display")
-    return None, None
+                add(c["code"], c.get("display"))
+
+    # 4) embedded Condition resources
+    for cond in resource.get("condition", []) or []:
+        if isinstance(cond, dict) and cond.get("resourceType") == "Condition":
+            for c in (cond.get("code") or {}).get("coding", []) or []:
+                if c.get("system", "").endswith("icd-10") and c.get("code"):
+                    add(c["code"], c.get("display"))
+
+    return out
 
 
 def _same_content(existing: dict, transformed: dict, resource_type: str) -> bool:

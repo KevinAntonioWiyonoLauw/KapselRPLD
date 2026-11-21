@@ -100,6 +100,21 @@ Waktu wajib **UTC+00** (`…+00:00`). Tanggal tidak boleh < 03 Juni 2014.
 
 **Observation:** lihat `backend/probe_satusehat.py`.
 
+## 6b. Pemetaan diagnosis penuh (multi-Condition, #10)
+Encounter dapat memuat **lebih dari satu diagnosis**. Pipeline mengekstrak **semua**
+diagnosis dari payload sumber lalu membuat **satu `Condition` per diagnosis** dalam
+transaction Bundle, dan `Encounter.diagnosis` merujuk ke tiap Condition:
+
+- Sumber yang didukung (prioritas): `diagnoses: [{code, display}]` (atau `[code, display]`),
+  field `diagnosis_code`/`icd10` + `diagnosis_display`, seluruh `reasonCode` ber-sistem
+  ICD-10, dan `Condition` tertanam.
+- Bila tidak ada diagnosis → fallback ke diagnosis default (`SATUSEHAT_DEFAULT_ICD10`)
+  agar Encounter tetap punya minimal satu Condition (wajib).
+- Dedup berdasarkan kode; urutan dipertahankan.
+
+Contoh: sumber punya `J06.9` + `E11.9` → bundle berisi `Encounter` + `Condition(J06.9)` +
+`Condition(E11.9)`, dan `Encounter.diagnosis` berisi dua referensi.
+
 ## 7. Bukti & cara reproduksi
 
 ```bash

@@ -39,8 +39,8 @@ def test_f7_observation_search_params_include_date():
     assert params.get("code") == "8310-5"
 
 
-def test_icd_from_resource_variants():
-    assert sync._icd_from_resource({"diagnosis_code": "A09"}) == ("A09", None)
+def test_diagnoses_from_resource_variants():
+    assert sync._diagnoses_from_resource({"diagnosis_code": "A09"}) == [("A09", "A09")]
     r = {"reasonCode": [{"coding": [{"system": "http://hl7.org/fhir/sid/icd-10", "code": "J06.9", "display": "URI"}]}]}
-    assert sync._icd_from_resource(r) == ("J06.9", "URI")
-    assert sync._icd_from_resource({}) == (None, None)
+    assert sync._diagnoses_from_resource(r) == [("J06.9", "URI")]
+    assert sync._diagnoses_from_resource({}) == []
