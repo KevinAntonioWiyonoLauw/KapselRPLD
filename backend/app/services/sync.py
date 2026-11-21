@@ -138,10 +138,12 @@ def _sync_mapping_for(db: Session, job: SyncJob):
         IdentifierMapping.source_identifier == sid)).scalar_one_or_none()
 
 
-def _mark_synced(db: Session, job: SyncJob, resource: dict) -> None:
+def _record_sync_baselines(db: Session, job: SyncJob, resource: dict, target_version: str | None) -> None:
+    """Record the source & target versions we just synchronized (F4 baselines)."""
     m = _sync_mapping_for(db, job)
     if m is not None:
         m.synced_version = (resource.get("meta") or {}).get("lastUpdated")
+        m.synced_target_version = target_version
 
 
 def _search_params(resource: dict) -> dict:
@@ -465,34 +467,67 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
                     audit.log(db, actor="worker", action="sync_idempotent_skip", entity_type="SyncJob",
                               entity_id=job.id, detail={"target": target.name})
                     return job
-                # F4: version-based conflict detection.
+                # F4: version-based conflict detection (content heuristic as fallback).
                 src_ver = (resource.get("meta") or {}).get("lastUpdated")
                 tgt_ver = (existing_res.get("meta") or {}).get("lastUpdated")
                 m = _sync_mapping_for(db, job)
-                synced = getattr(m, "synced_version", None) if m else None
-                if synced is not None and src_ver is not None and src_ver == synced:
-                    # Source unchanged since last sync -> target is ahead (target wins); no conflict.
+                base_src = getattr(m, "synced_version", None) if m else None
+                base_tgt = getattr(m, "synced_target_version", None) if m else None
+
+                action = None
+                if src_ver and tgt_ver and base_src and base_tgt:
+                    action = conflict_mod.classify_version_conflict(
+                        source_version=src_ver, target_version=tgt_ver,
+                        baseline_source=base_src, baseline_target=base_tgt)
+                else:
+                    # Fallback when version history is incomplete: rely on content.
+                    action = "idempotent" if _same_content(existing_res, transformed, job.resource_type) else "conflict"
+
+                if action == "idempotent":
+                    job.status = "success"
+                    job.last_error = None
+                    record("success", http_status=sr.http_status, err="idempotent: already exists")
+                    audit.log(db, actor="worker", action="sync_idempotent_skip", entity_type="SyncJob",
+                              entity_id=job.id, detail={"target": target.name})
+                    return job
+                if action == "target_newer":
+                    # Only the target changed since last sync -> target wins, nothing to do.
                     job.status = "success"
                     job.last_error = None
                     record("success", http_status=sr.http_status,
-                           err="no-conflict: source unchanged since last sync")
+                           err="no-conflict: target changed, source unchanged")
                     audit.log(db, actor="worker", action="sync_no_conflict", entity_type="SyncJob",
-                              entity_id=job.id, detail={"synced": synced})
+                              entity_id=job.id, detail={"baseline_source": base_src})
                     return job
-                # Otherwise: source changed while target also exists -> genuine conflict
+                if action == "source_newer":
+                    # Only the source changed -> push a controlled update to the target.
+                    existing_id = existing_res.get("id")
+                    upd = await target_adapter.update(job.resource_type, existing_id, transformed) if existing_id else None
+                    if upd is not None and upd.ok:
+                        new_tgt_ver = ((upd.resource or {}).get("meta") or {}).get("lastUpdated") or tgt_ver
+                        _record_sync_baselines(db, job, resource, new_tgt_ver)
+                        job.status = "success"
+                        job.last_error = None
+                        record("success", http_status=upd.http_status, err="updated (source changed)")
+                        audit.log(db, actor="worker", action="sync_update", entity_type="SyncJob",
+                                  entity_id=job.id, detail={"target": target.name, "id": existing_id})
+                        return job
+                    # Update failed -> fall through to conflict so a human can review.
+                # action == "conflict" (or update failed): record and route to manual review.
                 from app.models import Conflict
                 db.add(Conflict(
                     job_id=job.id, resource_type=job.resource_type,
                     source_version=src_ver or "n/a",
                     target_version=tgt_ver or "n/a",
                     resolution="pending",
-                    note="Nilai sumber dan tujuan berbeda; perlu peninjauan manual."))
+                    note="Versi sumber dan tujuan sama-sama berubah; perlu peninjauan manual."))
                 db.flush()
                 job.status = "needs_review"
-                job.last_error = "Konflik data: nilai sumber dan tujuan berbeda; perlu peninjauan manual"
+                job.last_error = "Konflik data: sumber dan tujuan sama-sama berubah; perlu peninjauan manual"
                 record("perm_error", err=job.last_error)
                 audit.log(db, actor="worker", action="conflict_detected", entity_type="SyncJob",
-                          entity_id=job.id, detail={"target": target.name})
+                          entity_id=job.id, detail={"target": target.name,
+                                                    "source_version": src_ver, "target_version": tgt_ver})
                 return job
 
         # 5. Create on target
@@ -510,7 +545,7 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
                     identity.upsert_mapping(db, resource_type="Patient", source_system_id=target.id,
                                             target_system_id=source.id, source_identifier=new_id,
                                             target_identifier=src_pid, validation_status="verified")
-                    _mark_synced(db, job, resource)
+                    _record_sync_baselines(db, job, resource, (result.resource.get("meta") or {}).get("lastUpdated"))
             job.status = "success"
             job.last_error = None
             record("success", http_status=result.http_status)

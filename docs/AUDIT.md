@@ -95,7 +95,7 @@
 ### Positif (dipertahankan)
 - Sanitasi rahasia di audit log (`audit/logger.py:10`); payload dihapus saat sukses
   (`queue/worker.py`); retry **dibatasi** `max_attempts` + backoff (`sync.py`); DB queue
-  `FOR UPDATE SKIP LOCKED` (`queue/worker.py`); `/health`; test otomatis 30 lulus.
+  `FOR UPDATE SKIP LOCKED` (`queue/worker.py`); `/health`; test otomatis 42 lulus.
 
 ---
 
@@ -129,7 +129,8 @@ rendering=CORS) sehat untuk skala prototipe.
 | F2 | `except Exception` menyamarkan bug | ✅ FIXED | `sync.py`: `_RETRYABLE_EXC` → `failed_temp`+retry; exception lain → `failed_perm` + audit `sync_unhandled` (tanpa retry) | `tests/integration/test_audit_fixes_db.py` (2) |
 | F3 | Identifier `[0]` posisional | ✅ FIXED | `sync.py`: `_identifier_value` memilih berdasarkan **prioritas sistem** (IHS>NIK>MRN>PID) | `tests/unit/test_audit_fixes.py` (3) |
 | F5 | Rate limit default OFF | ◑ sebagian | Config + middleware tetap ada; **dokumentasikan** untuk diaktifkan saat terekspos (belum diubah default) | — |
-| F4, F6 | Konflik berbasis versi; dependensi Encounter→Obs | ⏳ backlog | Butuh perubahan skema/alur lebih besar | — |
+| F4 | Konflik berbasis versi | ✅ FIXED | `sync.py`: baseline `synced_version` (sumber) + `synced_target_version` (tujuan) di `identifier_mapping`; `conflict.classify_version_conflict` (source_newer→update, target_newer→abaikan, both→konflik); heuristik konten sebagai fallback | `tests/unit/test_conflict_version.py` (5), `tests/integration/test_conflict_version_db.py` (3) |
+| F6 | Dependensi Encounter→Obs | ✅ FIXED | Auto-provision Encounter (+Condition) saat Observation tanpa mapping Encounter | `services/sync.py` (jalur SATUSEHAT) |
 
-**Regresi:** unit **18** · integration **7** · e2e **3** = **28 lulus**. Alur normal (Patient→OpenEMR) tetap `success`.
+**Regresi:** unit **29** · integration **10** · e2e **3** = **42 lulus**. Alur normal (Patient→OpenEMR) tetap `success`.
 
