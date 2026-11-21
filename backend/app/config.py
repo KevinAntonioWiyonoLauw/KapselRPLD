@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     openemr_client_id: str = ""
     openemr_client_secret: str = ""
     openemr_token_url: str = ""
+    openemr_username: str = ""      # optional: enable password grant (dev/local real OpenEMR)
+    openemr_password: str = ""
     openemr_mock_url: str = "http://mock-ehr:8100/openemr"
 
     # SATUSEHAT

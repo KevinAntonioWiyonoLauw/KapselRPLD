@@ -28,7 +28,7 @@ Pencapaian utama:
 - **TC-01..TC-10 lulus**, ditambah **TC-11..TC-13** (SATUSEHAT sandbox nyata, dua arah, konflik).
 - **Integrasi nyata ke SATUSEHAT sandbox** berhasil (bukan hanya mock): rantai `Organization → Location → Patient/Practitioner → Encounter+Condition → Observation` menghasilkan **201 Created** dan terverifikasi ulang lewat `GET`.
 - **Sinkronisasi dua arah OpenMRS↔OpenEMR** dan **deteksi konflik** terbukti.
-- **53 test otomatis** hijau (unit 39, integration 11, e2e 3) + **CI**.
+- **60 test otomatis** hijau (unit 46, integration 11, e2e 3) + **CI**.
 
 ---
 
@@ -106,7 +106,7 @@ Manfaat akademis (pengalaman FHIR, middleware, async, hub-and-spoke) dan teknis 
 | 4 | Admin dashboard | ✅ | `frontend/` (Next.js, 6 tab) |
 | 5 | Skema DB middleware | ✅ | `backend/app/models` (8 tabel) |
 | 6 | Dokumentasi | ✅ | `docs/*` |
-| 7 | Hasil pengujian + metrik | ✅ | `docs/testing.md`, 53 test |
+| 7 | Hasil pengujian + metrik | ✅ | `docs/testing.md`, 60 test |
 
 ---
 
@@ -210,7 +210,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 
 > Catatan: angka success rate agregat pada DB demo dapat < 100% karena skenario uji **sengaja** memicu `needs_review` (konflik/validasi/identitas). Pada batch valid, success rate 100%.
 
-**4.3.4 Test otomatis:** unit 39 · integration 11 · e2e 3 = **53 lulus** (`scripts/test-all.ps1`, CI `.github/workflows/ci.yml`).
+**4.3.4 Test otomatis:** unit 46 · integration 11 · e2e 3 = **60 lulus** (`scripts/test-all.ps1`, CI `.github/workflows/ci.yml`).
 
 ## 4.4 Perancangan Desain Sistem
 **4.4.1 Aktor** — Operator/Admin, OpenMRS, OpenEMR, SATUSEHAT, Scheduler/Worker. ✅
@@ -247,7 +247,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 | 2 | Fondasi middleware | ✅ adapter + identity + koneksi |
 | 3 | Integrasi alur utama | ✅ Patient/Encounter/Observation (mock) + SATUSEHAT sandbox |
 | 4 | Keandalan & dashboard | ✅ queue/worker/retry/idempotency/conflict + dashboard |
-| 5 | Pengujian & demonstrasi | ✅ 53 test + metrik + dokumentasi + demo |
+| 5 | Pengujian & demonstrasi | ✅ 60 test + metrik + dokumentasi + demo |
 
 ## 5.2 Pembagian Tanggung Jawab (sesuai proposal)
 | Anggota | Fokus | Kontribusi nyata |
@@ -263,7 +263,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 # BAB VI PENUTUP
 
 ## 6.1 Kesimpulan
-Prototipe middleware interoperabilitas FHIR R4 yang menghubungkan OpenMRS, OpenEMR, dan SATUSEHAT berhasil dikembangkan sebagai aplikasi independen berarsitektur hub-and-spoke. Seluruh **luaran**, **tujuan khusus**, **FR-01..FR-15**, dan **TC-01..TC-10** terpenuhi, ditambah bukti **integrasi nyata ke SATUSEHAT sandbox**, **sinkronisasi dua arah**, dan **deteksi konflik**, dengan **53 test otomatis** dan CI.
+Prototipe middleware interoperabilitas FHIR R4 yang menghubungkan OpenMRS, OpenEMR, dan SATUSEHAT berhasil dikembangkan sebagai aplikasi independen berarsitektur hub-and-spoke. Seluruh **luaran**, **tujuan khusus**, **FR-01..FR-15**, dan **TC-01..TC-10** terpenuhi, ditambah bukti **integrasi nyata ke SATUSEHAT sandbox**, **sinkronisasi dua arah**, dan **deteksi konflik**, dengan **60 test otomatis** dan CI.
 
 ## 6.2 Keterbatasan
 - SATUSEHAT diuji pada **sandbox** (data uji), bukan produksi.
