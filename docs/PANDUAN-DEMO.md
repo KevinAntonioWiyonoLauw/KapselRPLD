@@ -167,7 +167,7 @@ docker compose stop scheduler
 powershell -ExecutionPolicy Bypass -File scripts/test-all.ps1
 docker compose start scheduler
 ```
-Hasil: **unit 20 · integration 7 · e2e 3 = 30 passed**.
+Hasil: **unit 29 · integration 10 · e2e 3 = 42 passed**.
 
 ---
 
@@ -198,4 +198,4 @@ docker compose exec backend python seed.py
 - [ ] Skenario C: dua arah + konflik tercatat.
 - [ ] Skenario D: SATUSEHAT sandbox 201 Created (probe & otomatis).
 - [ ] Skenario E: failed_temp → success.
-- [ ] Skenario F: 30 test passed.
+- [ ] Skenario F: 42 test passed.

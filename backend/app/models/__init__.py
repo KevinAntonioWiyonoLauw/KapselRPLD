@@ -77,6 +77,7 @@ class IdentifierMapping(Base):
     identifier_type: Mapped[str] = mapped_column(String(20), default="local")  # local | nik | ihs
     validation_status: Mapped[str] = mapped_column(String(20), default="pending")  # pending|verified|rejected
     synced_version: Mapped[str | None] = mapped_column(Text)  # F4: last synced source version
+    synced_target_version: Mapped[str | None] = mapped_column(Text)  # F4: last known target version
     verified_by: Mapped[str | None] = mapped_column(String(100))
     verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

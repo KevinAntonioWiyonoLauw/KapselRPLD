@@ -6,6 +6,32 @@ from sqlalchemy.orm import Session
 from app.models import Conflict
 
 
+def classify_version_conflict(
+    *,
+    source_version: str,
+    target_version: str,
+    baseline_source: str,
+    baseline_target: str,
+) -> str:
+    """Decide what to do given both sides' current versions and last-synced baselines.
+
+    Returns one of:
+    - ``idempotent``  : neither side changed since the last sync
+    - ``source_newer``: only the source changed -> safe to push an update
+    - ``target_newer``: only the target changed -> target wins, no action
+    - ``conflict``    : both changed -> needs manual review
+    """
+    src_changed = source_version != baseline_source
+    tgt_changed = target_version != baseline_target
+    if src_changed and tgt_changed:
+        return "conflict"
+    if src_changed:
+        return "source_newer"
+    if tgt_changed:
+        return "target_newer"
+    return "idempotent"
+
+
 def detect_version_conflict(
     db: Session,
     *,
