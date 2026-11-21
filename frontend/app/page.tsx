@@ -14,6 +14,7 @@ import {
   Link2,
   ListChecks,
   Loader2,
+  LogOut,
   Moon,
   PlugZap,
   RefreshCw,
@@ -35,7 +36,8 @@ import {
   YAxis,
 } from "recharts";
 
-import { API_BASE, apiGet, apiPost } from "../lib/api";
+import { API_BASE, apiGet, apiPost, logout as apiLogout, getSession } from "../lib/api";
+import LoginForm from "../components/LoginForm";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -120,9 +122,9 @@ function unwrap<T>(payload: any): T[] {
 }
 
 export default function Home() {
-  const [token, setToken] = useState("change_me_admin_token");
   const [role, setRole] = useState<string>("");
   const canOperate = role === "admin" || role === "operator";
+  const [authReady, setAuthReady] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [tab, setTab] = useState("overview");
   const [metrics, setMetrics] = useState<any>(null);
@@ -159,12 +161,12 @@ export default function Home() {
     setLoading(true);
     try {
       const [m, s, j, c, mp, tl] = await Promise.all([
-        apiGet("/api/v1/metrics", token),
-        apiGet("/api/v1/systems", token),
-        apiGet("/api/v1/jobs?limit=500", token),
-        apiGet("/api/v1/conflicts", token),
-        apiGet("/api/v1/mappings", token),
-        apiGet("/api/v1/metrics/timeline", token).catch(() => null),
+        apiGet("/api/v1/metrics"),
+        apiGet("/api/v1/systems"),
+        apiGet("/api/v1/jobs?limit=500"),
+        apiGet("/api/v1/conflicts"),
+        apiGet("/api/v1/mappings"),
+        apiGet("/api/v1/metrics/timeline").catch(() => null),
       ]);
       setMetrics(m);
       setSystems(unwrap(s));
@@ -172,13 +174,6 @@ export default function Home() {
       setConflicts(unwrap(c));
       setMappings(unwrap(mp));
       setTimeline(unwrap(tl));
-      // Resolve current role (for the role badge + action gating).
-      try {
-        const me = await apiGet("/api/v1/auth/me", token);
-        setRole((me && me.role) || "");
-      } catch {
-        setRole("");
-      }
       setLastUpdated(
         new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       );
@@ -187,11 +182,25 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, []);
+
+  // On mount: resolve the session from the httpOnly cookie before showing the UI.
+  useEffect(() => {
+    (async () => {
+      const s = await getSession();
+      setRole(s?.role || "");
+      setAuthReady(true);
+    })();
+  }, []);
 
   useEffect(() => {
-    loadAll();
-  }, [loadAll]);
+    if (role) loadAll();
+  }, [role, loadAll]);
+
+  async function handleLogout() {
+    await apiLogout();
+    setRole("");
+  }
 
   // Theme: read the class set by the pre-paint script, then keep in sync.
   useEffect(() => {
@@ -210,7 +219,7 @@ export default function Home() {
   async function checkConn(name: string) {
     setCheckState((prev) => ({ ...prev, [name]: { status: "loading" } }));
     try {
-      const r = await apiPost(`/api/v1/systems/${name}/check`, token);
+      const r = await apiPost(`/api/v1/systems/${name}/check`);
       setCheckState((prev) => ({
         ...prev,
         [name]: {
@@ -226,7 +235,7 @@ export default function Home() {
   async function retryJob(id: string) {
     setBusyJob(id);
     try {
-      await apiPost(`/api/v1/jobs/${id}/retry`, token);
+      await apiPost(`/api/v1/jobs/${id}/retry`);
       await loadAll();
     } catch (e: any) {
       setErr(String(e.message || e));
@@ -238,7 +247,7 @@ export default function Home() {
   async function resolveConflict(id: string) {
     setBusyConflict(id);
     try {
-      await apiPost(`/api/v1/conflicts/${id}/resolve`, token, { note: "Ditandai selesai dari console" });
+      await apiPost(`/api/v1/conflicts/${id}/resolve`, { note: "Ditandai selesai dari console" });
       await loadAll();
     } catch (e: any) {
       setErr(String(e.message || e));
@@ -252,8 +261,7 @@ export default function Home() {
     setInbound(null);
     try {
       const r = await apiGet(
-        "/api/v1/satusehat/inbound/Patient?identifier=https://fhir.kemkes.go.id/id/ihs-number%7C100000030009",
-        token
+        "/api/v1/satusehat/inbound/Patient?identifier=https://fhir.kemkes.go.id/id/ihs-number%7C100000030009"
       );
       setInbound(r);
     } catch (e: any) {
@@ -267,7 +275,7 @@ export default function Home() {
     setSsrmeBusy(true);
     setSsrme(null);
     try {
-      const r = await apiPost(`/api/v1/ssrme/${kind}`, token, {
+      const r = await apiPost(`/api/v1/ssrme/${kind}`, {
         patient_id: "100000030009",
         patient_name: "Budi Santoso",
         practitioner_id: "10009880010",
@@ -388,6 +396,20 @@ export default function Home() {
   const successRate = metrics?.success_rate_percent ?? 0;
   const avgLatency = metrics?.avg_latency_seconds;
 
+  // Gate: show the login form until an authenticated session exists.
+  if (!authReady) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-background text-sm text-muted-foreground">
+        <span className="inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Memeriksa sesi...
+        </span>
+      </div>
+    );
+  }
+  if (!role) {
+    return <LoginForm onSuccess={(r) => setRole(r)} />;
+  }
+
   return (
     <div className="min-h-screen">
       <a
@@ -417,21 +439,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                Token admin
-              </span>
-              <Input
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="min-h-[44px] w-full font-mono text-xs sm:min-h-9 sm:w-60"
-                placeholder="Bearer token"
-                autoComplete="off"
-                spellCheck={false}
-                aria-label="Token admin untuk Management API"
-              />
-            </label>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             {role && (
               <span
                 className={cn(
@@ -467,6 +475,15 @@ export default function Home() {
               ) : (
                 <Moon className="h-4 w-4" aria-hidden="true" />
               )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="min-h-[44px] sm:min-h-9"
+              aria-label="Keluar"
+            >
+              <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+              Keluar
             </Button>
           </div>
         </div>
