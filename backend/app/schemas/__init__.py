@@ -27,6 +27,13 @@ class EnqueueRequest(BaseModel):
     version: str = ""
 
 
+class InboundPolicyCreate(BaseModel):
+    resource_type: str = "Observation"
+    target_system: str = "openmrs"
+    filter: dict = Field(default_factory=dict, description="SATUSEHAT search params, e.g. {'category':'vital-signs'}")
+    enabled: bool = True
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str = "0.1.0"
