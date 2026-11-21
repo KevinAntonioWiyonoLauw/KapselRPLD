@@ -6,7 +6,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import audit, conflicts, health, inbound, jobs, mappings, metrics, ssrme, systems
+from app.api import audit, auth, conflicts, health, inbound, jobs, mappings, metrics, ssrme, systems
 from app.config import settings
 from app.db.session import init_db
 from app.logging_setup import configure_logging
@@ -24,15 +24,12 @@ app = FastAPI(
     version="0.1.0",
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 # Starlette applies middleware in reverse order of addition: the last added runs
-# first. Security headers is added first so it wraps everything and stamps every
-# response (including redirects/errors). HTTPS redirect then runs before routing.
+# first (outermost). Order matters:
+#   SecurityHeaders (added first) -> innermost of these, stamps responses.
+#   ... RateLimit / HTTPSRedirect ...
+#   CORSMiddleware (added LAST) -> outermost, so even early short-circuit
+#   responses (rate-limit 429, HTTPS redirect) still carry CORS headers.
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(HTTPSRedirectMiddleware)
 app.add_middleware(RateLimitMiddleware)
@@ -42,8 +39,15 @@ if settings.allowed_hosts.strip():
         TrustedHostMiddleware,
         allowed_hosts=[h.strip() for h in settings.allowed_hosts.split(",") if h.strip()],
     )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o.strip()],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(health.router)
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(systems.router, prefix="/api/v1")
 app.include_router(jobs.router, prefix="/api/v1")
 app.include_router(conflicts.router, prefix="/api/v1")

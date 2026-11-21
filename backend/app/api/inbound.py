@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.registry import get_adapter
-from app.api.deps import require_operator
+from app.api.deps import require_admin, require_operator, require_viewer
 from app.audit import logger as audit
 from app.db.session import get_db
 from app.models import ExternalSystem, SyncPolicy
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/satusehat", tags=["inbound"])
 
 
 @router.get("/inbound/{resource_type}")
-async def inbound(resource_type: str, request: Request, _: str = Depends(require_operator)):
+async def inbound(resource_type: str, request: Request, _: str = Depends(require_viewer)):
     """Selectively read resources from SATUSEHAT using query params.
 
     Example: GET /api/v1/satusehat/inbound/Patient?identifier=<system>|<value>
@@ -49,14 +49,14 @@ def _policy_dict(p: SyncPolicy) -> dict:
 
 
 @router.get("/inbound-policies")
-async def list_inbound_policies(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def list_inbound_policies(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     rows = db.execute(select(SyncPolicy).where(SyncPolicy.direction == "inbound")).scalars().all()
     return [_policy_dict(p) for p in rows]
 
 
 @router.post("/inbound-policies")
 async def create_inbound_policy(payload: InboundPolicyCreate, db: Session = Depends(get_db),
-                                actor: str = Depends(require_operator)):
+                                actor: str = Depends(require_admin)):
     src = _satusehat_id(db)
     tgt = db.execute(select(ExternalSystem).where(ExternalSystem.name == payload.target_system)).scalar_one_or_none()
     if not tgt:
@@ -83,7 +83,7 @@ async def create_inbound_policy(payload: InboundPolicyCreate, db: Session = Depe
 
 @router.delete("/inbound-policies/{policy_id}")
 async def delete_inbound_policy(policy_id: str, db: Session = Depends(get_db),
-                                actor: str = Depends(require_operator)):
+                                actor: str = Depends(require_admin)):
     p = db.get(SyncPolicy, policy_id)
     if not p or p.direction != "inbound":
         raise HTTPException(404, "inbound policy tidak ditemukan")

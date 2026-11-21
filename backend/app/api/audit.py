@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_operator
+from app.api.deps import require_viewer
 from app.db.session import get_db
 from app.models import AuditLog
 
@@ -22,7 +22,7 @@ async def list_audit(
     entity_type: str | None = Query(default=None),
     limit: int = Query(default=200, le=1000),
     db: Session = Depends(get_db),
-    _: str = Depends(require_operator),
+    _: str = Depends(require_viewer),
 ):
     stmt = select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)
     if action:
@@ -49,7 +49,7 @@ async def list_audit(
 async def export_audit_csv(
     limit: int = Query(default=5000, le=50000),
     db: Session = Depends(get_db),
-    _: str = Depends(require_operator),
+    _: str = Depends(require_viewer),
 ):
     rows = db.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(limit)).scalars().all()
     buf = io.StringIO()

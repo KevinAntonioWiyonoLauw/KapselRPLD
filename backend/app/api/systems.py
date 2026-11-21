@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.adapters.registry import get_adapter
-from app.api.deps import require_operator
+from app.api.deps import require_operator, require_viewer
 from app.audit import logger as audit
 from app.db.session import get_db
 from app.models import ExternalSystem
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/systems", tags=["systems"])
 
 
 @router.get("")
-async def list_systems(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def list_systems(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     systems = db.execute(select(ExternalSystem)).scalars().all()
     return [
         {
@@ -44,7 +44,7 @@ async def check_connectivity(name: str, db: Session = Depends(get_db), actor: st
 
 
 @router.get("/{name}/capability")
-async def get_capability(name: str, db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def get_capability(name: str, db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     adapter = get_adapter(name)
     result = await adapter.check_connectivity()
     return {"ok": result.ok, "capability": result.resource, "error": result.error}

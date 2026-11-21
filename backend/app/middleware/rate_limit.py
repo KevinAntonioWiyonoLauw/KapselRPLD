@@ -76,7 +76,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         limit = settings.rate_limit_per_minute
-        if limit and request.url.path.startswith("/api/"):
+        # Never rate-limit CORS preflight (OPTIONS) requests: they are not real
+        # API calls, and blocking them breaks cross-origin access.
+        if limit and request.method != "OPTIONS" and request.url.path.startswith("/api/"):
             ip = request.client.host if request.client else "unknown"
             try:
                 allowed, retry = self._store.hit(ip, limit, self._window)
