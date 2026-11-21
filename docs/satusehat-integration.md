@@ -115,6 +115,17 @@ transaction Bundle, dan `Encounter.diagnosis` merujuk ke tiap Condition:
 Contoh: sumber punya `J06.9` + `E11.9` → bundle berisi `Encounter` + `Condition(J06.9)` +
 `Condition(E11.9)`, dan `Encounter.diagnosis` berisi dua referensi.
 
+## 6c. Gate validasi profil sebelum kirim (HAPI, #9)
+Ketika `USE_HAPI_VALIDATOR=true`, pipeline **memvalidasi payload terhadap profil
+SATUSEHAT SEBELUM mengirim**. Jika gagal, job menjadi `needs_review` dengan daftar
+issue dan **tidak ada yang dikirim** (mencegah data invalid masuk sandbox/produksi).
+
+- Validator: `POST {HAPI_VALIDATOR_URL}/validate` dengan body `{"resource": {...}}`,
+  mengembalikan `OperationOutcome` (issue kosong = valid).
+- Service `hapi-validator` disediakan di `docker-compose.yml` (mock HAPI-style ringan;
+  ganti image bila butuh konformansi profil penuh).
+- Diuji: payload invalid → `needs_review` (tak terkirim); payload valid → terkirim.
+
 ## 7. Bukti & cara reproduksi
 
 ```bash
