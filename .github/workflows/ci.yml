@@ -37,6 +37,8 @@ jobs:
     env:
       # Pin nama project agar nama network deterministik: kapselrpld_default
       COMPOSE_PROJECT_NAME: kapselrpld
+      # Ambang coverage minimum (unit+integration). Naikkan bertahap seiring cakupan.
+      COVERAGE_MIN: "50"
     steps:
       - uses: actions/checkout@v4
 
@@ -83,6 +85,31 @@ jobs:
             -e API_BASE=http://backend:8000 \
             -v "$PWD/backend:/app" -w /app kapselrpld-backend:latest \
             sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests/e2e -q"
+
+      - name: Coverage report + gate (unit + integration)
+        # Menjalankan unit+integration dengan coverage dan memfailkan job bila
+        # total coverage < ambang (COVERAGE_MIN). coverage.xml diunggah sebagai artifact.
+        run: |
+          mkdir -p coverage
+          docker run --rm --network kapselrpld_default \
+            -e OPENMRS_MODE=mock -e OPENEMR_MODE=mock -e SATUSEHAT_MODE=mock \
+            -e OPENMRS_MOCK_URL=http://mock-ehr:8100/openmrs \
+            -e OPENEMR_MOCK_URL=http://mock-ehr:8100/openemr \
+            -e SATUSEHAT_MOCK_URL=http://mock-satusehat:8200/fhir-r4/v1 \
+            -e DATABASE_URL=postgresql+psycopg2://middleware:change_me_db@db:5432/middleware \
+            -e ADMIN_API_TOKEN=change_me_admin_token -e APP_ENV=development \
+            -v "$PWD/backend:/app" -v "$PWD/mocks:/mocks:ro" -v "$PWD/coverage:/coverage" -w /app kapselrpld-backend:latest \
+            sh -c "pip install -q pytest pytest-asyncio pytest-cov && \
+                   python -m pytest tests/unit tests/integration -q \
+                     --cov=app --cov-report=term --cov-report=xml:/coverage/coverage.xml \
+                     --cov-fail-under=${COVERAGE_MIN}"
+
+      - name: Unggah laporan coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/coverage.xml
 
       - name: Log container saat gagal
         if: failure()
