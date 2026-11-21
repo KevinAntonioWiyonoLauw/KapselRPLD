@@ -29,7 +29,7 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 | **SATUSEHAT sandbox NYATA (rantai penuh)** | ✅ Terbukti via `probe_satusehat.py` (Encounter+Condition+Observation 201 Created) |
 | Dashboard Next.js (shadcn + grafik) | ✅ Build + serve HTTP 200 |
 | Dua arah OpenMRS↔OpenEMR + conflict detection | ✅ Terbukti (mapping dua arah + conflict tercatat) |
-| Test otomatis (unit 32 + integration 11 + e2e 3) | ✅ 46 hijau |
+| Test otomatis (unit 39 + integration 11 + e2e 3) | ✅ 53 hijau |
 | Hardening (normalisasi error, retensi payload, rate limit aktif) | ✅ Selesai |
 | CI (GitHub Actions) + skrip test-all | ✅ Selesai |
 | Profil EHR asli (compose profile) | ✅ Siap (opsional, berat) |
@@ -104,4 +104,4 @@ Legenda: `[x]` selesai · `[~]` sebagian · `[ ]` belum · `[!]` risiko/butuh ke
 - [x] Management API + dashboard (6 tab) berfungsi
 - [x] Laporan metrik
 - [x] Dokumentasi + runbook
-- [x] Test otomatis hijau (46)
+- [x] Test otomatis hijau (53)

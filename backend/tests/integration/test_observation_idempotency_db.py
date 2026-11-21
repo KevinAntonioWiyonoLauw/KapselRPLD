@@ -48,10 +48,11 @@ def _mk_job(db, obs):
 
 @pytest.mark.asyncio
 async def test_identical_observation_not_duplicated(db_session):
+    pid = f"P{uuid.uuid4().hex[:8]}"
     obs = {
         "resourceType": "Observation",
         "status": "final",
-        "subject": {"reference": "Patient/1"},
+        "subject": {"reference": f"Patient/{pid}"},
         "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
         "effectiveDateTime": "2026-03-01T09:00:00Z",
         "valueQuantity": {"value": 80, "unit": "/min"},
@@ -61,7 +62,7 @@ async def test_identical_observation_not_duplicated(db_session):
     tgt = sync.get_system(db_session, "openemr")
     db_session.add(IdentifierMapping(
         resource_type="Patient", source_system_id=src.id, target_system_id=tgt.id,
-        source_identifier="1", target_identifier="1", validation_status="verified"))
+        source_identifier=pid, target_identifier=pid, validation_status="verified"))
     db_session.commit()
 
     fake = FakeObsAdapter()

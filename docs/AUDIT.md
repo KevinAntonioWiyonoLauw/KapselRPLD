@@ -95,7 +95,7 @@
 ### Positif (dipertahankan)
 - Sanitasi rahasia di audit log (`audit/logger.py:10`); payload dihapus saat sukses
   (`queue/worker.py`); retry **dibatasi** `max_attempts` + backoff (`sync.py`); DB queue
-  `FOR UPDATE SKIP LOCKED` (`queue/worker.py`); `/health`; test otomatis 46 lulus.
+  `FOR UPDATE SKIP LOCKED` (`queue/worker.py`); `/health`; test otomatis 53 lulus.
 
 ---
 
@@ -132,5 +132,5 @@ rendering=CORS) sehat untuk skala prototipe.
 | F4 | Konflik berbasis versi | ✅ FIXED | `sync.py`: baseline `synced_version` (sumber) + `synced_target_version` (tujuan) di `identifier_mapping`; `conflict.classify_version_conflict` (source_newer→update, target_newer→abaikan, both→konflik); heuristik konten sebagai fallback | `tests/unit/test_conflict_version.py` (5), `tests/integration/test_conflict_version_db.py` (3) |
 | F6 | Dependensi Encounter→Obs | ✅ FIXED | Auto-provision Encounter (+Condition) saat Observation tanpa mapping Encounter | `services/sync.py` (jalur SATUSEHAT) |
 
-**Regresi:** unit **32** · integration **11** · e2e **3** = **46 lulus**. Alur normal (Patient→OpenEMR) tetap `success`.
+**Regresi:** unit **39** · integration **11** · e2e **3** = **53 lulus**. Alur normal (Patient→OpenEMR) tetap `success`.
 
