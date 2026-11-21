@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_operator
+from app.api.deps import require_operator, require_viewer
 from app.audit import logger as audit
 from app.core import identity
 from app.db.session import get_db
@@ -23,7 +23,7 @@ def _system_id(db: Session, name: str):
 
 
 @router.get("")
-async def list_mappings(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def list_mappings(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     rows = db.execute(select(IdentifierMapping)).scalars().all()
     return [
         {

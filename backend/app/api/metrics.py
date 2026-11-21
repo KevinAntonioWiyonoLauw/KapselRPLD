@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_operator
+from app.api.deps import require_viewer
 from app.core import metrics as prom
 from app.db.session import get_db
 from app.models import JobAttempt, SyncJob
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/metrics", tags=["metrics"])
 
 
 @router.get("")
-async def metrics(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def metrics(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     total = db.execute(select(func.count()).select_from(SyncJob)).scalar_one()
     by_status = dict(
         db.execute(select(SyncJob.status, func.count()).group_by(SyncJob.status)).all()
@@ -48,7 +48,7 @@ async def metrics(db: Session = Depends(get_db), _: str = Depends(require_operat
 
 
 @router.get("/timeline")
-async def metrics_timeline(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def metrics_timeline(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     """Jobs per hour (last 24h) for trend charts."""
     rows = db.execute(
         select(func.date_trunc("hour", SyncJob.created_at).label("bucket"),

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_operator
+from app.api.deps import require_operator, require_viewer
 from app.audit import logger as audit
 from app.db.session import get_db
 from app.models import Conflict
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/conflicts", tags=["conflicts"])
 
 
 @router.get("")
-async def list_conflicts(db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def list_conflicts(db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     rows = db.execute(select(Conflict).order_by(Conflict.detected_at.desc())).scalars().all()
     return [
         {

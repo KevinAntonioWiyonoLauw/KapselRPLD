@@ -32,11 +32,11 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
-| Unit | 75 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder (termasuk multi-diagnosis→Condition), conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3), ekstraksi diagnosis, profile-gate helper, inbound helpers, SSRME URL, security headers/HTTPS middleware, observability (metrics/logging), mock persistence, rate-limit stores |
+| Unit | 81 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder (termasuk multi-diagnosis→Condition), conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3), ekstraksi diagnosis, profile-gate helper, inbound helpers, SSRME URL, security headers/HTTPS middleware, observability (metrics/logging), mock persistence, rate-limit stores, RBAC |
 | Integration | 19 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) + openmrs pipeline (identifier preferred + Encounter.type UUID + subject→uuid) + satusehat condition pipeline (semua diagnosis → Condition) + profile-gate (invalid→needs_review, valid→delivered) + inbound policy (tarik + idempotent) + Alembic (drift check, version table) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **97 test lulus** (75 + 19 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **103 test lulus** (81 + 19 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:

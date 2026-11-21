@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_operator
+from app.api.deps import require_operator, require_viewer
 from app.audit import logger as audit
 from app.db.session import get_db
 from app.models import JobAttempt, SyncJob
@@ -35,7 +35,7 @@ async def list_jobs(
     resource_type: str | None = Query(default=None),
     limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
-    _: str = Depends(require_operator),
+    _: str = Depends(require_viewer),
 ):
     stmt = select(SyncJob).order_by(SyncJob.created_at.desc()).limit(limit)
     if status:
@@ -47,7 +47,7 @@ async def list_jobs(
 
 
 @router.get("/{job_id}")
-async def get_job(job_id: str, db: Session = Depends(get_db), _: str = Depends(require_operator)):
+async def get_job(job_id: str, db: Session = Depends(get_db), _: str = Depends(require_viewer)):
     job = db.get(SyncJob, job_id)
     if not job:
         raise HTTPException(404, "job not found")

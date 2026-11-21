@@ -119,6 +119,8 @@ function unwrap<T>(payload: any): T[] {
 
 export default function Home() {
   const [token, setToken] = useState("change_me_admin_token");
+  const [role, setRole] = useState<string>("");
+  const canOperate = role === "admin" || role === "operator";
   const [tab, setTab] = useState("overview");
   const [metrics, setMetrics] = useState<any>(null);
   const [systems, setSystems] = useState<any[]>([]);
@@ -167,6 +169,13 @@ export default function Home() {
       setConflicts(unwrap(c));
       setMappings(unwrap(mp));
       setTimeline(unwrap(tl));
+      // Resolve current role (for the role badge + action gating).
+      try {
+        const me = await apiGet("/api/v1/auth/me", token);
+        setRole((me && me.role) || "");
+      } catch {
+        setRole("");
+      }
       setLastUpdated(
         new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
       );
@@ -406,6 +415,20 @@ export default function Home() {
                 aria-label="Token admin untuk Management API"
               />
             </label>
+            {role && (
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium",
+                  role === "admin" && "border-primary/40 bg-primary/10 text-primary",
+                  role === "operator" && "border-amber-500/40 bg-amber-500/10 text-amber-700",
+                  role === "viewer" && "border-border bg-muted text-muted-foreground"
+                )}
+                aria-label={`Peran saat ini: ${role}`}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {role}
+              </span>
+            )}
             <Button
               onClick={loadAll}
               disabled={loading}
@@ -671,7 +694,7 @@ export default function Home() {
                         size="sm"
                         className="min-h-[40px] sm:min-h-8"
                         onClick={() => retryJob(j.id)}
-                        disabled={busyJob === j.id}
+                        disabled={busyJob === j.id || !canOperate}
                         aria-label={`Retry job ${j.resource_type} ${j.source_resource_id}`}
                       >
                         {busyJob === j.id ? (
@@ -835,7 +858,7 @@ export default function Home() {
                                 size="sm"
                                 className="min-h-[40px] sm:min-h-8"
                                 onClick={() => retryJob(j.id)}
-                                disabled={busyJob === j.id}
+                                disabled={busyJob === j.id || !canOperate}
                                 aria-label={`Retry job ${j.resource_type} ${j.source_resource_id}`}
                               >
                                 {busyJob === j.id ? (
@@ -906,7 +929,7 @@ export default function Home() {
                             size="sm"
                             className="min-h-[40px] sm:min-h-8"
                             onClick={() => resolveConflict(c.id)}
-                            disabled={busyConflict === c.id}
+                            disabled={busyConflict === c.id || !canOperate}
                           >
                             {busyConflict === c.id ? (
                               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -1019,7 +1042,8 @@ export default function Home() {
                   size="sm"
                   className="min-h-[44px] sm:min-h-9"
                   onClick={runInbound}
-                  disabled={inboundBusy}
+                  disabled={inboundBusy || !canOperate}
+                  title={!canOperate ? "Butuh role operator" : undefined}
                 >
                   {inboundBusy ? (
                     <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -1047,7 +1071,7 @@ export default function Home() {
                     size="sm"
                     className="min-h-[44px] sm:min-h-9"
                     onClick={() => runSsrme("chlink")}
-                    disabled={ssrmeBusy}
+                    disabled={ssrmeBusy || !canOperate}
                   >
                     {ssrmeBusy ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />
@@ -1061,7 +1085,7 @@ export default function Home() {
                     size="sm"
                     className="min-h-[44px] sm:min-h-9"
                     onClick={() => runSsrme("shlink")}
-                    disabled={ssrmeBusy}
+                    disabled={ssrmeBusy || !canOperate}
                   >
                     {ssrmeBusy ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" />

@@ -1,9 +1,14 @@
-"""Admin authentication dependency with lightweight RBAC.
+"""Authentication + role-based access control (#13).
 
-Roles:
-- admin   -> ADMIN_API_TOKEN (full access, including sensitive endpoints)
-- operator-> OPERATOR_API_TOKEN (retry/resolve/check/mapping verify; optional)
-If OPERATOR_API_TOKEN is empty, only admin exists (operator falls back to admin).
+Three roles, from least to most privileged:
+- **viewer**   -> VIEWER_API_TOKEN: read-only (list/detail/metrics/audit).
+- **operator** -> OPERATOR_API_TOKEN: viewer + operational actions (retry, resolve
+  conflict, connectivity check, verify mapping, enqueue, SSRME, inbound pull).
+- **admin**    -> ADMIN_API_TOKEN: operator + configuration changes (inbound policy
+  create/delete) and everything else.
+
+Backward compatible: if a role token is empty, that role simply does not exist
+(an admin token always grants admin). Tokens are compared in constant time.
 """
 from __future__ import annotations
 
@@ -14,6 +19,9 @@ from fastapi import Header, HTTPException, status
 from app.config import settings
 
 _DEFAULT_TOKEN = "change_me_admin_token"
+
+# Privilege ordering for hierarchy checks.
+_ROLE_RANK = {"viewer": 1, "operator": 2, "admin": 3}
 
 
 def _bearer(authorization: str | None) -> str | None:
@@ -30,24 +38,43 @@ def _check_default_guard() -> None:
         )
 
 
-async def require_admin(authorization: str | None = Header(default=None)) -> str:
-    _check_default_guard()
-    token = _bearer(authorization)
-    if token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    if not secrets.compare_digest(token, settings.admin_api_token):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
-    return "admin"
-
-
-async def require_operator(authorization: str | None = Header(default=None)) -> str:
-    """Admin or operator role."""
-    _check_default_guard()
-    token = _bearer(authorization)
-    if token is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
-    if secrets.compare_digest(token, settings.admin_api_token):
+def resolve_role(token: str | None) -> str | None:
+    """Return the role for a token, or None if invalid. Admin checked first."""
+    if not token:
+        return None
+    if settings.admin_api_token and secrets.compare_digest(token, settings.admin_api_token):
         return "admin"
     if settings.operator_api_token and secrets.compare_digest(token, settings.operator_api_token):
         return "operator"
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
+    if settings.viewer_api_token and secrets.compare_digest(token, settings.viewer_api_token):
+        return "viewer"
+    return None
+
+
+async def current_role(authorization: str | None = Header(default=None)) -> str:
+    """Resolve the caller's role or raise 401/403."""
+    _check_default_guard()
+    role = resolve_role(_bearer(authorization))
+    if role is None:
+        if _bearer(authorization) is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer token")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
+    return role
+
+
+def _require_at_least(min_role: str):
+    async def dep(authorization: str | None = Header(default=None)) -> str:
+        role = await current_role(authorization)
+        if _ROLE_RANK[role] < _ROLE_RANK[min_role]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                                detail=f"Butuh role minimal '{min_role}'")
+        return role
+    return dep
+
+
+# Read access: viewer, operator, admin.
+require_viewer = _require_at_least("viewer")
+# Operational actions: operator, admin.
+require_operator = _require_at_least("operator")
+# Configuration / sensitive: admin only.
+require_admin = _require_at_least("admin")
