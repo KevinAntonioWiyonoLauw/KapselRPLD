@@ -4,7 +4,7 @@
 
 | Suite | Lokasi | Jumlah | Status |
 |-------|--------|--------|--------|
-| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, profile-gate, inbound helpers, audit fixes) | `backend/tests/unit` | 60 | ✅ lulus |
+| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, profile-gate, inbound helpers, ssrme, audit fixes) | `backend/tests/unit` | 63 | ✅ lulus |
 | Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline, satusehat condition, profile-gate DB, inbound policy DB) | `backend/tests/integration` | 17 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
 
@@ -32,11 +32,11 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
-| Unit | 60 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder (termasuk multi-diagnosis→Condition), conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3), ekstraksi diagnosis, profile-gate helper, inbound helpers |
+| Unit | 63 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder (termasuk multi-diagnosis→Condition), conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3), ekstraksi diagnosis, profile-gate helper, inbound helpers, SSRME URL |
 | Integration | 17 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) + openmrs pipeline (identifier preferred + Encounter.type UUID + subject→uuid) + satusehat condition pipeline (semua diagnosis → Condition) + profile-gate (invalid→needs_review, valid→delivered) + inbound policy (tarik + idempotent) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **80 test lulus** (60 + 17 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **83 test lulus** (63 + 17 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:
