@@ -1,0 +1,27 @@
+{
+  "_comment": "SATUSEHAT prerequisite entities with dummy IHS numbers (sandbox-style).",
+  "Organization": {
+    "resourceType": "Organization",
+    "identifier": [{"system": "http://sys-ids.kemkes.go.id/organization/1000001", "value": "ORG-001"}],
+    "name": "Klinik Pogung Kidul"
+  },
+  "Location": {
+    "resourceType": "Location",
+    "identifier": [{"system": "http://sys-ids.kemkes.go.id/location/1000001", "value": "LOC-01"}],
+    "name": "Ruang Poli Umum",
+    "managingOrganization": {"reference": "Organization/1000001"}
+  },
+  "Practitioner": {
+    "resourceType": "Practitioner",
+    "identifier": [{"system": "http://sys-ids.kemkes.go.id/accreditation/1000001", "value": "N-1000"}],
+    "name": [{"text": "dr. Contoh"}]
+  },
+  "Patient": {
+    "resourceType": "Patient",
+    "identifier": [
+      {"system": "https://fhir.kemkes.go.id/id/ihs-number", "value": "100000030009"},
+      {"system": "https://fhir.kemkes.go.id/id/nik", "value": "3400000000000001"}
+    ],
+    "name": [{"text": "Budi Santoso"}]
+  }
+}

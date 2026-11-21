@@ -1,0 +1,18 @@
+{
+  "Patient": [
+    {
+      "resourceType": "Patient",
+      "identifier": [{"system": "http://openmrs.org/mrn", "value": "MRN-001"}],
+      "name": [{"family": "Santoso", "given": ["Budi"]}],
+      "gender": "male",
+      "birthDate": "1985-04-12"
+    },
+    {
+      "resourceType": "Patient",
+      "identifier": [{"system": "http://openmrs.org/mrn", "value": "MRN-002"}],
+      "name": [{"family": "Wulandari", "given": ["Siti"]}],
+      "gender": "female",
+      "birthDate": "1990-09-30"
+    }
+  ]
+}

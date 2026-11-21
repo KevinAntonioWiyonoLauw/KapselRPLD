@@ -1,0 +1,20 @@
+{
+  "Observation": [
+    {
+      "resourceType": "Observation",
+      "status": "final",
+      "code": {"text": "body_temp"},
+      "subject": {"reference": "Patient/MRN-001"},
+      "effectiveDateTime": "2026-01-10T09:15:00+00:00",
+      "valueQuantity": {"value": 36.8, "unit": "Cel"}
+    },
+    {
+      "resourceType": "Observation",
+      "status": "final",
+      "code": {"text": "heart_rate"},
+      "subject": {"reference": "Patient/MRN-001"},
+      "effectiveDateTime": "2026-01-10T09:16:00+00:00",
+      "valueQuantity": {"value": 78, "unit": "/min"}
+    }
+  ]
+}
