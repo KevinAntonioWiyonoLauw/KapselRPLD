@@ -5,6 +5,8 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CopyX,
   GitCompareArrows,
   Inbox,
@@ -84,6 +86,9 @@ const STATUS_HEX: Record<string, string> = {
 
 const ACTIONABLE = ["needs_review", "failed_temp", "failed_perm"];
 
+// Rows per page for the long lists (jobs, conflicts, mappings).
+const PAGE_SIZE = 10;
+
 function toneOf(status: string): Tone {
   return STATUS_TONE[status] ?? "secondary";
 }
@@ -126,6 +131,9 @@ export default function Home() {
   const [jobFilter, setJobFilter] = useState<string>("all");
   const [mapQuery, setMapQuery] = useState<string>("");
   const [mapType, setMapType] = useState<string>("all");
+  const [jobPage, setJobPage] = useState<number>(1);
+  const [mapPage, setMapPage] = useState<number>(1);
+  const [conflictPage, setConflictPage] = useState<number>(1);
 
   const [checkState, setCheckState] = useState<
     Record<string, { status: "idle" | "loading" | "ok" | "fail"; msg?: string }>
@@ -145,7 +153,7 @@ export default function Home() {
       const [m, s, j, c, mp, tl] = await Promise.all([
         apiGet("/api/v1/metrics", token),
         apiGet("/api/v1/systems", token),
-        apiGet("/api/v1/jobs", token),
+        apiGet("/api/v1/jobs?limit=500", token),
         apiGet("/api/v1/conflicts", token),
         apiGet("/api/v1/mappings", token),
         apiGet("/api/v1/metrics/timeline", token).catch(() => null),
@@ -321,6 +329,30 @@ export default function Home() {
       return typeOk && qOk;
     });
   }, [mappings, mapQuery, mapType]);
+
+  // --- Pagination slices (client-side) ---
+  const jobTotalPages = Math.max(1, Math.ceil(filteredJobs.length / PAGE_SIZE));
+  const pagedJobs = useMemo(
+    () => filteredJobs.slice((jobPage - 1) * PAGE_SIZE, jobPage * PAGE_SIZE),
+    [filteredJobs, jobPage]
+  );
+  const mapTotalPages = Math.max(1, Math.ceil(filteredMappings.length / PAGE_SIZE));
+  const pagedMappings = useMemo(
+    () => filteredMappings.slice((mapPage - 1) * PAGE_SIZE, mapPage * PAGE_SIZE),
+    [filteredMappings, mapPage]
+  );
+  const conflictTotalPages = Math.max(1, Math.ceil(conflicts.length / PAGE_SIZE));
+  const pagedConflicts = useMemo(
+    () => conflicts.slice((conflictPage - 1) * PAGE_SIZE, conflictPage * PAGE_SIZE),
+    [conflicts, conflictPage]
+  );
+
+  // Reset to page 1 whenever a filter/search changes or the data set shrinks.
+  useEffect(() => setJobPage(1), [jobFilter, jobs.length]);
+  useEffect(() => setMapPage(1), [mapQuery, mapType, mappings.length]);
+  useEffect(() => {
+    if (conflictPage > conflictTotalPages) setConflictPage(conflictTotalPages);
+  }, [conflictPage, conflictTotalPages]);
 
   const successCount = metrics?.by_status?.success ?? 0;
   const totalJobs = metrics?.total_jobs ?? 0;
@@ -777,7 +809,7 @@ export default function Home() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredJobs.map((j) => (
+                      pagedJobs.map((j) => (
                         <TableRow key={j.id}>
                           <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
                             {fmtTime(j.created_at)}
@@ -820,6 +852,8 @@ export default function Home() {
                   </TableBody>
                 </Table>
               </div>
+              <Pagination page={jobPage} totalPages={jobTotalPages} total={filteredJobs.length}
+                onPage={setJobPage} label="pekerjaan" />
             </Panel>
           </TabsContent>
 
@@ -839,7 +873,7 @@ export default function Home() {
                 />
               ) : (
                 <ul className="space-y-3">
-                  {conflicts.map((c) => (
+                  {pagedConflicts.map((c) => (
                     <li key={c.id} className="rounded-lg border border-border bg-card p-4">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -884,6 +918,8 @@ export default function Home() {
                   ))}
                 </ul>
               )}
+              <Pagination page={conflictPage} totalPages={conflictTotalPages} total={conflicts.length}
+                onPage={setConflictPage} label="konflik" />
             </Panel>
           </TabsContent>
 
@@ -945,7 +981,7 @@ export default function Home() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredMappings.map((m) => (
+                      pagedMappings.map((m) => (
                         <TableRow key={m.id}>
                           <TableCell className="font-mono text-xs">{m.source_identifier}</TableCell>
                           <TableCell className="font-mono text-xs">{m.target_identifier}</TableCell>
@@ -963,6 +999,8 @@ export default function Home() {
                   </TableBody>
                 </Table>
               </div>
+              <Pagination page={mapPage} totalPages={mapTotalPages} total={filteredMappings.length}
+                onPage={setMapPage} label="pemetaan" />
             </Panel>
           </TabsContent>
 
@@ -1176,6 +1214,64 @@ function FilterChip({
     >
       {children}
     </button>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  total,
+  onPage,
+  label,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  onPage: (p: number) => void;
+  label: string;
+}) {
+  if (total === 0) return null;
+  const start = (page - 1) * PAGE_SIZE + 1;
+  const end = Math.min(page * PAGE_SIZE, total);
+  return (
+    <nav
+      className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3"
+      aria-label={`Navigasi halaman ${label}`}
+    >
+      <p className="text-xs text-muted-foreground">
+        Menampilkan <span className="font-mono-num font-medium text-foreground">{start}</span>
+        {"–"}
+        <span className="font-mono-num font-medium text-foreground">{end}</span> dari{" "}
+        <span className="font-mono-num font-medium text-foreground">{total}</span> {label}
+      </p>
+      <div className="flex items-center gap-1.5">
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-[36px]"
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1}
+          aria-label={`Halaman ${label} sebelumnya`}
+        >
+          <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          Sebelumnya
+        </Button>
+        <span className="px-1 text-xs text-muted-foreground" aria-hidden="true">
+          <span className="font-mono-num font-medium text-foreground">{page}</span> / {totalPages}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-h-[36px]"
+          onClick={() => onPage(page + 1)}
+          disabled={page >= totalPages}
+          aria-label={`Halaman ${label} berikutnya`}
+        >
+          Berikutnya
+          <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </div>
+    </nav>
   );
 }
 
