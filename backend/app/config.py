@@ -71,6 +71,7 @@ class Settings(BaseSettings):
     satusehat_default_icd10_display: str = "Acute upper respiratory infection, unspecified"
     # SSRME (Rekam Medis Elektronik viewing) base, e.g. sandbox .../ssrme/v2/ntl
     ssrme_base_url: str = "https://api-satusehat-stg.dto.kemkes.go.id/ssrme/v2/ntl"
+    ssrme_mock_base_url: str = "http://mock-satusehat:8200/fhir-r4/v1/ssrme"
     ssrme_enabled: bool = True
 
     # Scheduler / worker

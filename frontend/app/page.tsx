@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CopyX,
+  ExternalLink,
   GitCompareArrows,
   Inbox,
   Link2,
@@ -17,6 +18,7 @@ import {
   RefreshCw,
   Search,
   Server,
+  ShieldCheck,
   Timer,
 } from "lucide-react";
 import {
@@ -145,6 +147,7 @@ export default function Home() {
   const [inboundBusy, setInboundBusy] = useState(false);
   const [ssrme, setSsrme] = useState<any>(null);
   const [ssrmeBusy, setSsrmeBusy] = useState(false);
+  const [ssrmeEmergency, setSsrmeEmergency] = useState(false);
 
   const loadAll = useCallback(async () => {
     setErr("");
@@ -245,7 +248,7 @@ export default function Home() {
         practitioner_name: "dr. Contoh",
         organization_id: process.env.NEXT_PUBLIC_SATUSEHAT_ORG_ID || "",
         organization_name: "STAGING",
-        emergency: kind === "shlink",
+        emergency: kind === "shlink" ? ssrmeEmergency : false,
       });
       setSsrme(r);
     } catch (e: any) {
@@ -1035,10 +1038,10 @@ export default function Home() {
               </Panel>
 
               <Panel
-                title="SSRME: CHLink dan SHLink"
-                desc="Buat tautan persetujuan pasien dan tautan akses darurat"
+                title="SSRME: akses RME nasional"
+                desc="Tautan persetujuan pasien (CHLink) dan tautan buka RME (SHLink)"
               >
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
@@ -1051,7 +1054,7 @@ export default function Home() {
                     ) : (
                       <GitCompareArrows className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     )}
-                    Buat CHLink
+                    Buat tautan persetujuan (CHLink)
                   </Button>
                   <Button
                     variant="outline"
@@ -1065,16 +1068,83 @@ export default function Home() {
                     ) : (
                       <PlugZap className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
                     )}
-                    Buat SHLink
+                    Buat tautan buka RME (SHLink)
                   </Button>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-[color:var(--primary)]"
+                      checked={ssrmeEmergency}
+                      onChange={(e) => setSsrmeEmergency(e.target.checked)}
+                    />
+                    Mode darurat (EMERGENCY)
+                  </label>
                 </div>
-                <pre className="mt-3 max-h-64 overflow-auto rounded-md border border-border bg-muted/50 p-3 font-mono text-xs">
-{ssrmeBusy
-  ? "Memuat…"
-  : ssrme
-  ? JSON.stringify(ssrme, null, 2)
-  : "Belum ada permintaan. Tekan tombol untuk membuat tautan SSRME."}
-                </pre>
+
+                <div className="mt-3 rounded-md border border-border bg-muted/40 p-3" aria-live="polite">
+                  {ssrmeBusy ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Membuat tautan SSRME…
+                    </div>
+                  ) : !ssrme ? (
+                    <p className="text-sm text-muted-foreground">
+                      Belum ada tautan. Pilih aksi di atas untuk membuat tautan persetujuan atau buka RME.
+                    </p>
+                  ) : ssrme.ok === false ? (
+                    <div className="flex items-start gap-2 text-sm text-[color:var(--danger,#b91c1c)]">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>Gagal: {String(ssrme.error || "respons tidak valid")}</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {ssrme.verification_url && (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm">
+                            Tautan persetujuan pasien siap
+                            {ssrme.kind === "chlink" ? " (CHLink)" : ""}.
+                          </span>
+                          <a
+                            href={ssrme.verification_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+                          >
+                            <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                            Buka tautan persetujuan
+                          </a>
+                        </div>
+                      )}
+                      {ssrme.shlink_url && (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-sm">
+                            Tautan buka RME nasional siap
+                            {ssrme.emergency ? " (mode darurat)" : ""}.
+                          </span>
+                          <a
+                            href={ssrme.shlink_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex min-h-[40px] items-center gap-1.5 rounded-md border border-primary bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+                          >
+                            <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                            Buka RME nasional
+                          </a>
+                        </div>
+                      )}
+                      {!ssrme.verification_url && !ssrme.shlink_url && (
+                        <p className="text-sm text-muted-foreground">
+                          Permintaan diterima, tetapi tautan tidak tersedia pada respons.
+                        </p>
+                      )}
+                      <details className="text-xs text-muted-foreground">
+                        <summary className="cursor-pointer select-none">Lihat respons mentah</summary>
+                        <pre className="mt-2 max-h-48 overflow-auto rounded bg-background p-2 font-mono">
+{JSON.stringify(ssrme.data ?? ssrme, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  )}
+                </div>
               </Panel>
             </div>
           </TabsContent>

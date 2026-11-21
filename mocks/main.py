@@ -311,10 +311,35 @@ async def hapi_validate(request: Request):
 
 
 # =====================================================================
+# SSRME viewing mock (CHLink / SHLink) - demoable without real credentials
+# =====================================================================
+ssrme = APIRouter(prefix="/fhir-r4/v1/ssrme")
+
+
+@ssrme.post("/chl")
+async def ssrme_chl(request: Request):
+    body = await request.json()
+    token = uuid.uuid4().hex[:12]
+    return {"verificationUrl": f"https://mock-ssrme.local/consent/{token}",
+            "token": token, "patient_id": body.get("patient_id")}
+
+
+@ssrme.post("/shl")
+async def ssrme_shl(request: Request):
+    body = await request.json()
+    token = uuid.uuid4().hex[:12]
+    emergency = body.get("type_medical_summary") == "EMERGENCY"
+    return {"shlinkUrl": f"https://mock-ssrme.local/rme/{token}",
+            "token": token, "emergency": emergency,
+            "patient_id": body.get("patient_id")}
+
+
+# =====================================================================
 # Mount routers based on role
 # =====================================================================
 if MOCK_ROLE == "satusehat":
     app.include_router(ss)
+    app.include_router(ssrme)
 elif MOCK_ROLE == "hapi":
     app.include_router(hapi)
 else:

@@ -140,6 +140,17 @@ re-run **idempoten** (tidak menduplikasi).
 - Bukti (mock): seed 2 Observation di SATUSEHAT → `pull` ⇒ `created=2`; `pull` kedua
   ⇒ `skipped=2`; target EHR berisi 2 Observation.
 
+## 6e. UX SSRME di dashboard (#12)
+Kartu "SSRME: akses RME nasional" pada tab Integrasi memanggil CHLink/SHLink dan
+menampilkan hasilnya sebagai aksi nyata (bukan JSON mentah):
+- **CHLink** → tombol **"Buka tautan persetujuan"** (buka tab baru ke `verification_url`).
+- **SHLink** → tombol **"Buka RME nasional"** (buka tab baru ke `shlink_url`).
+- Toggle **Mode darurat (EMERGENCY)** mengirim `type_medical_summary=EMERGENCY`.
+- State lengkap: kosong, loading, error, dan sukses; respons mentah tersedia di
+  disclosure "Lihat respons mentah".
+- Mode mock menyediakan endpoint SSRME (`/fhir-r4/v1/ssrme/chl|shl`) agar alur bisa
+  didemokan tanpa kredensial nyata.
+
 ## 7. Bukti & cara reproduksi
 
 ```bash
