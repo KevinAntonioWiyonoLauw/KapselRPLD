@@ -7,6 +7,23 @@ docker compose up -d --build
 docker compose exec backend python seed.py
 ```
 
+## Migrasi database (Alembic)
+Skema DB dikelola **Alembic** (bukan `create_all`). `init_db()` menjalankan
+`alembic upgrade head` otomatis saat backend/worker/scheduler start (diserialkan
+dengan Postgres advisory lock). DB lama (pra-Alembic) otomatis di-*stamp* ke
+baseline saat pertama kali, tanpa kehilangan data.
+
+```bash
+# terapkan migrasi (biasanya otomatis saat start)
+docker compose exec backend alembic upgrade head
+
+# cek drift model vs migrasi (harus "No new upgrade operations detected")
+docker compose exec backend alembic check
+
+# buat migrasi baru setelah mengubah model
+docker compose exec backend alembic revision --autogenerate -m "deskripsi"
+```
+
 ## Melihat status & log
 ```bash
 docker compose ps

@@ -1,11 +1,17 @@
 """Database engine, session factory, and declarative base."""
-from sqlalchemy import create_engine
+from pathlib import Path
+
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
 
 engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+
+# Directory that contains alembic.ini (project root of the backend image: /app).
+_ALEMBIC_INI = Path(__file__).resolve().parents[2] / "alembic.ini"
+_BASELINE_REVISION = "84471ae07bd8"
 
 
 class Base(DeclarativeBase):
@@ -22,30 +28,27 @@ def get_db():
 
 
 def init_db():
-    """Create tables (prototype: no Alembic migration yet)."""
-    from app import models  # noqa: F401  (register models)
+    """Apply database migrations via Alembic (replaces create_all + manual ALTER).
 
-    Base.metadata.create_all(bind=engine)
-    _ensure_additive_columns()
-
-
-def _ensure_additive_columns():
-    """Add columns introduced after the first schema version (prototype-grade).
-
-    `create_all` does not ALTER existing tables, so new nullable columns are added
-    here idempotently. This will be replaced by Alembic (issue #14).
+    - Serialized with a Postgres advisory lock so multiple containers starting at
+      once (backend/worker/scheduler) do not race.
+    - Adopts a pre-existing schema (created before Alembic) by stamping the baseline
+      revision when the core tables already exist but ``alembic_version`` does not.
     """
-    from sqlalchemy import inspect, text
+    from alembic import command
+    from alembic.config import Config
 
-    additions = [
-        ("sync_policies", "filter_json", "JSONB"),
-    ]
-    insp = inspect(engine)
-    existing_tables = set(insp.get_table_names())
+    cfg = Config(str(_ALEMBIC_INI))
     with engine.begin() as conn:
-        for table, column, coltype in additions:
-            if table not in existing_tables:
-                continue
-            cols = {c["name"] for c in insp.get_columns(table)}
-            if column not in cols:
-                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}"))
+        conn.execute(text("SELECT pg_advisory_lock(778899)"))
+        try:
+            existing = set(inspect(conn).get_table_names())
+            has_version = "alembic_version" in existing
+            core_present = {"external_systems", "sync_jobs"}.issubset(existing)
+            if not has_version and core_present:
+                # Pre-Alembic database: mark baseline as already applied.
+                command.stamp(cfg, _BASELINE_REVISION)
+            cfg.attributes["connection"] = conn
+            command.upgrade(cfg, "head")
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(778899)"))
