@@ -27,3 +27,7 @@ Thumbs.db
 *.log
 /data/
 /docs/task
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
