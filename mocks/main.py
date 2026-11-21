@@ -2,6 +2,7 @@
 
 MOCK_ROLE=ehr        -> serves /openmrs and /openemr (permissive, in-memory)
 MOCK_ROLE=satusehat  -> serves /fhir-r4/v1 with SATUSEHAT profile/IHS validation
+MOCK_ROLE=hapi       -> serves POST /validate (HAPI-style OperationOutcome validator)
 
 Routes use explicit prefixes (no ambiguous /{base}/... patterns) so the
 SATUSEHAT endpoints never collide with the EHR endpoints.
@@ -261,10 +262,61 @@ async def ss_create(rtype: str, request: Request):
 
 
 # =====================================================================
+# HAPI-style validator (POST /validate)
+# =====================================================================
+hapi = APIRouter()
+
+
+def _hapi_validate_issues(rtype: str, resource: dict) -> list[dict]:
+    """Return HAPI-style issue dicts (severity/code/diagnostics)."""
+    msgs: list[str] = []
+    if rtype == "Encounter":
+        subj = (resource.get("subject") or {}).get("reference", "")
+        if not subj.startswith("Patient/"):
+            msgs.append("Encounter.subject harus Reference Patient/{id}")
+        if not (resource.get("serviceProvider") or {}).get("reference"):
+            msgs.append("Encounter.serviceProvider wajib")
+        if not resource.get("statusHistory"):
+            msgs.append("Encounter.statusHistory wajib")
+        if not resource.get("diagnosis"):
+            msgs.append("Encounter.diagnosis wajib")
+    elif rtype == "Observation":
+        subj = (resource.get("subject") or {}).get("reference", "")
+        if not subj.startswith("Patient/"):
+            msgs.append("Observation.subject harus Reference Patient/{id}")
+        codings = (resource.get("code") or {}).get("coding", [])
+        if not any(c.get("system") == "http://loinc.org" for c in codings):
+            msgs.append("Observation.code wajib LOINC")
+        if not resource.get("issued"):
+            msgs.append("Observation.issued wajib")
+    elif rtype == "Condition":
+        if not (resource.get("subject") or {}).get("reference"):
+            msgs.append("Condition.subject wajib")
+        if not (resource.get("encounter") or {}).get("reference"):
+            msgs.append("Condition.encounter wajib")
+    elif rtype == "Patient":
+        if not resource.get("identifier"):
+            msgs.append("Patient.identifier wajib")
+    return [{"severity": "error", "code": "processing", "diagnostics": m} for m in msgs]
+
+
+@hapi.post("/validate")
+async def hapi_validate(request: Request):
+    body = await request.json()
+    resource = body.get("resource") if isinstance(body.get("resource"), dict) else body
+    rtype = (resource or {}).get("resourceType")
+    issues = _hapi_validate_issues(rtype, resource or {})
+    # HAPI-style OperationOutcome: issues list empty => valid
+    return {"resourceType": "OperationOutcome", "issue": issues}
+
+
+# =====================================================================
 # Mount routers based on role
 # =====================================================================
 if MOCK_ROLE == "satusehat":
     app.include_router(ss)
+elif MOCK_ROLE == "hapi":
+    app.include_router(hapi)
 else:
     app.include_router(_build_ehr_router("openmrs"))
     app.include_router(_build_ehr_router("openemr"))

@@ -31,6 +31,17 @@ services:
     ports:
       - "8200:8200"
 
+  # HAPI-style FHIR profile validator (validates before delivery to SATUSEHAT).
+  # Lightweight stand-in for hapi-fhir-validation; replace the image with a real
+  # HAPI validator if you need full profile conformance.
+  hapi-validator:
+    build: ./mocks
+    environment:
+      MOCK_ROLE: hapi
+      MOCK_PORT: "3500"
+    ports:
+      - "3500:3500"
+
   backend:
     build: ./backend
     image: kapselrpld-backend:latest
@@ -48,6 +59,8 @@ services:
       mock-ehr:
         condition: service_started
       mock-satusehat:
+        condition: service_started
+      hapi-validator:
         condition: service_started
 
   worker:

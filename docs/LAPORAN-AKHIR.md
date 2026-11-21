@@ -28,7 +28,7 @@ Pencapaian utama:
 - **TC-01..TC-10 lulus**, ditambah **TC-11..TC-13** (SATUSEHAT sandbox nyata, dua arah, konflik).
 - **Integrasi nyata ke SATUSEHAT sandbox** berhasil (bukan hanya mock): rantai `Organization → Location → Patient/Practitioner → Encounter+Condition → Observation` menghasilkan **201 Created** dan terverifikasi ulang lewat `GET`.
 - **Sinkronisasi dua arah OpenMRS↔OpenEMR** dan **deteksi konflik** terbukti.
-- **73 test otomatis** hijau (unit 56, integration 14, e2e 3) + **CI**.
+- **76 test otomatis** hijau (unit 57, integration 16, e2e 3) + **CI**.
 
 ---
 
@@ -247,7 +247,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 | 2 | Fondasi middleware | ✅ adapter + identity + koneksi |
 | 3 | Integrasi alur utama | ✅ Patient/Encounter/Observation (mock) + SATUSEHAT sandbox |
 | 4 | Keandalan & dashboard | ✅ queue/worker/retry/idempotency/conflict + dashboard |
-| 5 | Pengujian & demonstrasi | ✅ 73 test + metrik + dokumentasi + demo |
+| 5 | Pengujian & demonstrasi | ✅ 76 test + metrik + dokumentasi + demo |
 
 ## 5.2 Pembagian Tanggung Jawab (sesuai proposal)
 | Anggota | Fokus | Kontribusi nyata |
@@ -263,7 +263,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 # BAB VI PENUTUP
 
 ## 6.1 Kesimpulan
-Prototipe middleware interoperabilitas FHIR R4 yang menghubungkan OpenMRS, OpenEMR, dan SATUSEHAT berhasil dikembangkan sebagai aplikasi independen berarsitektur hub-and-spoke. Seluruh **luaran**, **tujuan khusus**, **FR-01..FR-15**, dan **TC-01..TC-10** terpenuhi, ditambah bukti **integrasi nyata ke SATUSEHAT sandbox**, **integrasi nyata OpenMRS (Patient/Encounter/Observation)**, **sinkronisasi dua arah**, dan **deteksi konflik**, dengan **73 test otomatis** dan CI.
+Prototipe middleware interoperabilitas FHIR R4 yang menghubungkan OpenMRS, OpenEMR, dan SATUSEHAT berhasil dikembangkan sebagai aplikasi independen berarsitektur hub-and-spoke. Seluruh **luaran**, **tujuan khusus**, **FR-01..FR-15**, dan **TC-01..TC-10** terpenuhi, ditambah bukti **integrasi nyata ke SATUSEHAT sandbox**, **integrasi nyata OpenMRS (Patient/Encounter/Observation)**, **sinkronisasi dua arah**, dan **deteksi konflik**, dengan **76 test otomatis** dan CI.
 
 ## 6.2 Keterbatasan
 - SATUSEHAT diuji pada **sandbox** (data uji), bukan produksi.

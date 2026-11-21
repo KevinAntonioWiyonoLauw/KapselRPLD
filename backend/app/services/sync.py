@@ -188,6 +188,36 @@ def _schedule_retry(job: SyncJob, attempt: int) -> None:
     job.next_attempt_at = _now() + timedelta(seconds=BACKOFF_SECONDS[idx])
 
 
+def _satusehat_bundle_resources(bundle: dict) -> list[dict]:
+    """Resources inside a transaction Bundle that carry a profile (skip Condition
+    refs). Used to validate the deliverable payload before sending."""
+    return [e.get("resource", {}) for e in bundle.get("entry", [])
+            if e.get("resource", {}).get("resourceType") in ("Encounter", "Observation", "Patient")]
+
+
+async def _profile_gate(db: Session, job: SyncJob, resources: list[dict], record) -> bool:
+    """Validate resources against the SATUSEHAT profile before delivery.
+
+    Returns True when valid (or validation disabled); on failure it sets the job
+    to needs_review and returns False so the caller stops before sending.
+    """
+    if not settings.use_hapi_validator:
+        return True
+    all_issues: list[str] = []
+    for res in resources:
+        vr = await validation.profile_validate(res, "satusehat")
+        if not vr.ok:
+            all_issues.extend(vr.issues)
+    if all_issues:
+        job.status = "needs_review"
+        job.last_error = "Validasi profil SATUSEHAT gagal: " + "; ".join(all_issues[:5])
+        record("perm_error", err=job.last_error)
+        audit.log(db, actor="worker", action="profile_validation_failed",
+                  entity_type="SyncJob", entity_id=job.id, detail={"issues": all_issues[:5]})
+        return False
+    return True
+
+
 async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) -> SyncJob:
     """Automatic pipeline: OpenMRS resource -> SATUSEHAT (real sandbox/production)."""
     org = settings.satusehat_org_id
@@ -248,6 +278,8 @@ async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) 
             bundle, enc_uuid = ss_builder.build_encounter_condition_bundle(
                 org=org, patient_ihs=ihs, practitioner_ihs=prac, location_id=loc,
                 diagnoses=diagnoses or None)
+            if not await _profile_gate(db, job, _satusehat_bundle_resources(bundle), record):
+                return job
             res = await ss.transaction(bundle)
             if res.ok:
                 enc_id = None
@@ -282,6 +314,8 @@ async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) 
                     return job
                 bundle, _ = ss_builder.build_encounter_condition_bundle(
                     org=org, patient_ihs=ihs, practitioner_ihs=prac, location_id=loc)
+                if not await _profile_gate(db, job, _satusehat_bundle_resources(bundle), record):
+                    return job
                 eres = await ss.transaction(bundle)
                 if not eres.ok:
                     _finish_error(job, eres, record, job.attempt_count); return job
@@ -307,6 +341,8 @@ async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) 
             obs = ss_builder.build_observation(
                 patient_ihs=ihs, practitioner_ihs=prac, encounter_id=encounter_target_id,
                 loinc_code=code, loinc_display=display, value=value, unit_code=unit)
+            if not await _profile_gate(db, job, [obs], record):
+                return job
             res = await ss.create("Observation", obs)
             if res.ok:
                 job.status = "success"; job.last_error = None
