@@ -38,6 +38,18 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 
 > Total **103 test lulus** (81 + 19 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
+## Coverage
+CI menjalankan **unit + integration** dengan `pytest-cov` dan **gate** `--cov-fail-under=50`
+(ambang `COVERAGE_MIN`, dinaikkan bertahap). Total coverage saat ini **~52%** (baris kode).
+Laporan `coverage.xml` diunggah sebagai artifact `coverage-report` di setiap run CI.
+Jalankan lokal:
+```bash
+docker run --rm --network kapselrpld_default -v "$PWD/backend:/app" -v "$PWD/mocks:/mocks:ro" \
+  -w /app kapselrpld-backend:latest \
+  sh -c "pip install -q pytest pytest-asyncio pytest-cov && \
+         python -m pytest tests/unit tests/integration --cov=app --cov-report=term --cov-fail-under=50"
+```
+
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:
 
