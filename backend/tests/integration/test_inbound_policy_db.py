@@ -41,6 +41,12 @@ async def test_inbound_policy_pulls_and_is_idempotent(db_session):
     tag = uuid.uuid4().hex[:8]
     src = sync.get_system(db_session, "satusehat")
     tgt = sync.get_system(db_session, "openmrs")
+    # Isolate: remove any pre-existing inbound policy for this route (persistent DB).
+    for old in db_session.query(SyncPolicy).filter(
+            SyncPolicy.source_system_id == src.id, SyncPolicy.target_system_id == tgt.id,
+            SyncPolicy.resource_type == "Observation", SyncPolicy.direction == "inbound").all():
+        db_session.delete(old)
+    db_session.commit()
     policy = SyncPolicy(source_system_id=src.id, target_system_id=tgt.id,
                         resource_type="Observation", direction="inbound",
                         enabled=True, filter_json={"category": "vital-signs"})
