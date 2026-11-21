@@ -42,7 +42,7 @@ Detail: lihat `docs/architecture.md` dan roadmap di `docs/ROADMAP.md`.
 **Kualitas & operasional**
 - **Coverage gate** 50% di CI (pytest-cov) + artifact laporan coverage.
 - **Playwright e2e + a11y** (axe-core) untuk dashboard.
-- **Dashboard** 6 tab, responsif, **dark mode** (persist), pagination.
+- **Dashboard** 6 tab, responsif, **dark mode** (persist), pagination, **login form** (username+password, cookie httpOnly).
 
 ## Quickstart (5 menit)
 
@@ -69,6 +69,10 @@ Akses:
 | Mock SATUSEHAT | http://localhost:8200 |
 
 Token admin default ada di `.env` (`ADMIN_API_TOKEN`).
+
+**Login dashboard:** buka http://localhost:3000 → form login (username + password).
+Akun demo: `admin`/`admin123`, `operator`/`operator123`, `viewer`/`viewer123`
+(diatur via `.env`; sesi cookie httpOnly, opsi "Ingat saya").
 
 ## Demo alur sinkronisasi
 

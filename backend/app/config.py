@@ -13,6 +13,15 @@ class Settings(BaseSettings):
     admin_api_token: str = "change_me_admin_token"
     operator_api_token: str = ""  # optional: operator role (admin always allowed)
     viewer_api_token: str = ""    # optional: read-only role (#13)
+    # Demo login credentials for the dashboard login form (username + password).
+    # Akun demo: tiap peran punya username + password sendiri. Kosong = akun itu
+    # tidak aktif. Password disimpan HANYA di .env (gitignored), tidak pernah di repo.
+    admin_username: str = "admin"
+    admin_password: str = "admin123"
+    operator_username: str = "operator"
+    operator_password: str = ""
+    viewer_username: str = "viewer"
+    viewer_password: str = ""
     # CORS allowlist (comma-separated). Jangan "*" di production.
     cors_origins: str = "http://localhost:3000"
 

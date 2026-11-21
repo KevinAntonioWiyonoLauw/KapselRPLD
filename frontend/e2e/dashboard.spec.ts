@@ -1,13 +1,35 @@
 import { test, expect, Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-// Dashboard e2e + accessibility tests (#19).
+// Dashboard e2e + accessibility tests (#19), updated for the login form.
 // Requires the stack running: backend (mock) + dashboard at BASE_URL.
+// Demo account: admin / admin123 (from .env).
+
+async function login(page: Page) {
+  await page.goto("/");
+  await page.locator("#username").fill("admin");
+  await page.locator("#password").fill("admin123");
+  await page.getByRole("button", { name: "Masuk" }).click();
+}
 
 async function waitLoaded(page: Page) {
-  await page.goto("/");
+  await login(page);
   await expect(page.getByText("Total pekerjaan")).toBeVisible({ timeout: 30_000 });
 }
+
+test("login form authenticates and reveals the dashboard", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Masuk ke Console" })).toBeVisible();
+  // Wrong password is rejected.
+  await page.locator("#username").fill("admin");
+  await page.locator("#password").fill("salah-sekali");
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect(page.getByRole("alert")).toBeVisible();
+  // Correct credentials log in.
+  await page.locator("#password").fill("admin123");
+  await page.getByRole("button", { name: "Masuk" }).click();
+  await expect(page.getByText("Total pekerjaan")).toBeVisible({ timeout: 30_000 });
+});
 
 test("dashboard loads with KPI cards and 6 tabs", async ({ page }) => {
   await waitLoaded(page);
@@ -43,8 +65,21 @@ test("dark mode toggle applies and persists across reload", async ({ page }) => 
 
 test("login resolves a role and shows the badge", async ({ page }) => {
   await waitLoaded(page);
-  // default token is the dev admin token -> role badge appears
   await expect(page.locator('[aria-label^="Peran saat ini"]')).toBeVisible();
+});
+
+test("logout returns to the login form", async ({ page }) => {
+  await waitLoaded(page);
+  await page.getByRole("button", { name: "Keluar" }).click();
+  await expect(page.getByRole("heading", { name: "Masuk ke Console" })).toBeVisible();
+});
+
+test("login page has no serious accessibility violations", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Masuk ke Console" })).toBeVisible();
+  const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  const serious = results.violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  expect(serious, "Pelanggaran a11y serius (login): " + JSON.stringify(serious.map((v) => v.id))).toEqual([]);
 });
 
 test("dashboard has no serious accessibility violations", async ({ page }) => {

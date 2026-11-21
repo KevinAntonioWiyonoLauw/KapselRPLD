@@ -21,12 +21,21 @@ Tiga peran, dari paling rendah ke paling tinggi:
 - Endpoint `/health`, `/docs`, `/openapi.json` tidak butuh token. `/api/v1/metrics/prometheus`
   tanpa auth (scrape internal).
 
-### Login (tukar token → peran)
+### Login (form username+password → peran + token)
+Dashboard memakai **login form** (username + password). Akun demo tiap peran diatur di
+`.env` (`ADMIN_USERNAME`/`ADMIN_PASSWORD`, `OPERATOR_*`, `VIEWER_*`). Endpoint menukar
+kredensial menjadi `role` + **token API peran** (dipakai frontend sebagai Bearer lewat
+cookie httpOnly).
 ```bash
 curl -s -X POST http://localhost:8000/api/v1/auth/login \
-  -H 'Content-Type: application/json' -d '{"token":"<TOKEN>"}'
-# -> {"ok": true, "role": "admin"}
+  -H 'Content-Type: application/json' -d '{"username":"admin","password":"admin123"}'
+# -> {"ok": true, "role": "admin", "token": "<ADMIN_API_TOKEN>"}
+```
 
+Login **token** (kompatibel lama / untuk API) juga didukung: kirim `{"token":"<TOKEN>"}`
+→ `{"ok": true, "role": "admin", "token": "<TOKEN>"}`.
+
+```bash
 curl -s -H "Authorization: Bearer $T" http://localhost:8000/api/v1/auth/me   # {"role": "..."}
 curl -s http://localhost:8000/api/v1/auth/roles                              # peran terkonfigurasi
 ```

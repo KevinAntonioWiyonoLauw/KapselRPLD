@@ -49,7 +49,10 @@ curl http://localhost:8000/health
 | Mock EHR (OpenMRS/OpenEMR) | http://localhost:8100 | data tujuan hasil sinkronisasi |
 | Mock SATUSEHAT | http://localhost:8200 | data tujuan SATUSEHAT (mode mock) |
 
-Admin token default: `change_me_admin_token` (di `.env`).
+**Login dashboard:** buka http://localhost:3000 → tampil **form login** (username + password,
+panel ilustrasi medis). Akun demo: `admin` / `admin123`, `operator` / `operator123`,
+`viewer` / `viewer123` (diatur di `.env`; centang **Ingat saya** untuk sesi 7 hari).
+Sesi disimpan sebagai cookie httpOnly.
 
 > **Dua mode demo:**
 > - **Mode MOCK** (`SATUSEHAT_MODE=mock`) → untuk Skenario A/B/C/E/F (aman, tanpa transaksi nyata).
@@ -77,7 +80,8 @@ Yang ditunjukkan skrip:
 ---
 
 ## 3. Skenario B — Dashboard (FR-13/14/15)
-Buka http://localhost:3000 (UI **shadcn/ui + Tailwind + Recharts**, responsif, lolos audit antislop), tunjukkan 6 tab:
+Buka http://localhost:3000 → **login** dengan `admin` / `admin123` (form login, panel
+ilustrasi medis). Setelah masuk, UI **shadcn/ui + Tailwind + Recharts**, responsif, lolos audit antislop; tunjukkan 6 tab:
 1. **Ringkasan** — 4 kartu metrik, **bar kesehatan antrean** per status, bar *beban per resource*, **tren job per jam**, dan daftar **Perlu perhatian** dengan tombol Retry.
 2. **Konektivitas** — kartu 3 sistem + tombol **Cek konektivitas** (klik → status `HTTP 200`/error inline).
 3. **Pekerjaan** — riwayat job + filter status + tombol **Retry** untuk `needs_review/failed_temp/failed_perm`.
@@ -88,6 +92,8 @@ Buka http://localhost:3000 (UI **shadcn/ui + Tailwind + Recharts**, responsif, l
 **Tangkapan layar (lampiran):**
 | Tab | Gambar |
 |-----|--------|
+| Login (terang) | ![login-light](screenshots/login-light.png) |
+| Login (gelap) | ![login-dark](screenshots/login-dark.png) |
 | Ringkasan | ![overview](screenshots/dashboard-overview.png) |
 | Konektivitas | ![connections](screenshots/dashboard-connections.png) |
 | Pekerjaan | ![jobs](screenshots/dashboard-jobs.png) |

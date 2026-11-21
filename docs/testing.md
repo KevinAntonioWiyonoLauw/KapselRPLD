@@ -7,7 +7,7 @@
 | Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, profile-gate, inbound helpers, ssrme, security middleware, audit fixes) | `backend/tests/unit` | 67 | ✅ lulus |
 | Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline, satusehat condition, profile-gate DB, inbound policy DB, migrations) | `backend/tests/integration` | 19 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
-| Dashboard e2e + a11y (Playwright + axe) | `frontend/e2e` | 5 | ✅ lulus |
+| Dashboard e2e + a11y (Playwright + axe) | `frontend/e2e` | 8 | ✅ lulus |
 
 Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 
@@ -52,10 +52,11 @@ docker run --rm --network kapselrpld_default -v "$PWD/backend:/app" -v "$PWD/moc
 ```
 
 ## Dashboard e2e + accessibility (Playwright)
-Suite `frontend/e2e` (job CI `e2e-dashboard`) menjalankan 5 test terhadap dashboard
-yang berjalan: load + 6 tab, navigasi tab + pagination, dark mode (toggle + persist
-lintas reload), login role badge, dan **axe-core** (gagal bila ada pelanggaran
-serious/critical). Jalankan lokal:
+Suite `frontend/e2e` (job CI `e2e-dashboard`) menjalankan 8 test terhadap dashboard
+yang berjalan: **login form** (kredensial benar/salah) + logout, load + 6 tab, navigasi
+tab, dark mode (toggle + persist lintas reload), badge peran, dan **axe-core** pada
+halaman login & dashboard (gagal bila ada pelanggaran serious/critical). Akun demo:
+`admin`/`admin123` (dari `.env`). Jalankan lokal:
 ```bash
 cd frontend
 npm install && npx playwright install chromium
