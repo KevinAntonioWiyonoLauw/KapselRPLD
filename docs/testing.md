@@ -4,8 +4,8 @@
 
 | Suite | Lokasi | Jumlah | Status |
 |-------|--------|--------|--------|
-| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, audit fixes) | `backend/tests/unit` | 29 | ✅ lulus |
-| Integration (adapter → mock, error-classification, conflict-version DB) | `backend/tests/integration` | 10 | ✅ lulus |
+| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, audit fixes) | `backend/tests/unit` | 32 | ✅ lulus |
+| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency) | `backend/tests/integration` | 11 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
 
 Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
@@ -31,11 +31,11 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
-| Unit | 29 | transform, validation, terminologi, idempotency, satusehat_builder, conflict-version (F4), identifier-priority (F3) |
-| Integration | 10 | adapter→mock + error-classification F2 + conflict-version F4 (DB) |
+| Unit | 32 | transform, validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder, conflict-version (F4), identifier-priority (F3) |
+| Integration | 11 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **42 test lulus** (29 + 10 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **46 test lulus** (32 + 11 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:

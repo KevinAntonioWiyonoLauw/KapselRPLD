@@ -146,6 +146,25 @@ def _record_sync_baselines(db: Session, job: SyncJob, resource: dict, target_ver
         m.synced_target_version = target_version
 
 
+def _observation_key(resource: dict) -> dict:
+    """Business key for append-only Observation: subject + code + effective time.
+
+    Used to search the target for an existing Observation so identical writes are
+    deduplicated (OpenMRS Observations are append-only, so re-sends are common).
+    """
+    params: dict = {}
+    ref = (resource.get("subject") or {}).get("reference", "")
+    if ref:
+        params["subject"] = ref
+    code = resource.get("code", {})
+    if code.get("coding"):
+        params["code"] = code["coding"][0].get("code")
+    effective = resource.get("effectiveDateTime") or resource.get("issued")
+    if effective:
+        params["date"] = effective
+    return params
+
+
 def _search_params(resource: dict) -> dict:
     rtype = resource["resourceType"]
     if rtype == "Patient":
@@ -155,17 +174,8 @@ def _search_params(resource: dict) -> dict:
         ref = (resource.get("subject") or {}).get("reference", "")
         return {"subject": ref} if ref else {}
     if rtype == "Observation":
-        params = {}
-        ref = (resource.get("subject") or {}).get("reference", "")
-        if ref:
-            params["subject"] = ref
-        code = resource.get("code", {})
-        if code.get("coding"):
-            params["code"] = code["coding"][0].get("code")
-        # F7: strengthen idempotency for append-only Observation (avoid duplicates)
-        if resource.get("effectiveDateTime"):
-            params["date"] = resource["effectiveDateTime"]
-        return params
+        # F7/idempotency: subject + code + effective (append-only de-dup key)
+        return _observation_key(resource)
     return {}
 
 
