@@ -1,0 +1,503 @@
+{
+  "info": {
+    "name": "KapselRPLD — Interoperabilitas FHIR (Demo & Test)",
+    "description": "Koleksi Postman untuk KapselRPLD (OpenMRS ↔ OpenEMR ↔ SATUSEHAT).\n\n## Cara pakai\n1. Import collection + environment (KapselRPLD — Local (mock)). Pilih environment di kanan atas.\n2. Jalankan stack: `docker compose up -d --build` lalu `docker compose exec backend python seed.py`.\n3. Pastikan `.env`: SATUSEHAT_MODE=mock, OPENMRS_MODE=mock, OPENEMR_MODE=mock (untuk demo penuh offline).\n4. Buka folder sesuai alur presentasi (lihat README di folder postman/).\n\n## Otomatis\n- Collection pre-request script login `admin` otomatis dan menyimpan `adminToken`.\n- Request login juga menyimpan `adminToken` / `operatorToken` / `viewerToken`.\n- Setiap request punya test (status code + assert kunci).\n\n## Alur presentasi (ringkas)\nA. Patient dari OpenMRS → OpenEMR (adapter).\nB. Patient/Encounter/Observation dari OpenMRS → SATUSEHAT (adapter, pakai builder transaction Bundle).\nC. Observasi + Idempotency + Konflik.\nD. RBAC (viewer ditolak, operator/admin diizinkan).\nE. Inbound selektif dari SATUSEHAT + SSRME.\nF. Operasional (metrics/audit/prometheus).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-login admin (simpan adminToken) agar request ber-auth langsung jalan.",
+          "const baseUrl = pm.variables.get('baseUrl');",
+          "const body = { username: pm.variables.get('adminUser'), password: pm.variables.get('adminPassword') };",
+          "pm.sendRequest({",
+          "  url: baseUrl + '/api/v1/auth/login',",
+          "  method: 'POST',",
+          "  header: { 'Content-Type': 'application/json' },",
+          "  body: { mode: 'raw', raw: JSON.stringify(body) }",
+          "}, function (err, res) {",
+          "  if (!err && res.code === 200) { try { pm.collectionVariables.set('adminToken', res.json().token); } catch (e) {} }",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "adminToken", "value": "" },
+    { "key": "operatorToken", "value": "" },
+    { "key": "viewerToken", "value": "" },
+    { "key": "lastJobId", "value": "" },
+    { "key": "openemrJobId", "value": "" },
+    { "key": "satusehatPatientJobId", "value": "" },
+    { "key": "satusehatEncounterJobId", "value": "" },
+    { "key": "satusehatObsJobId", "value": "" },
+    { "key": "mappingId", "value": "" },
+    { "key": "conflictId", "value": "" },
+    { "key": "policyId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "00 · Health & Auth (RBAC)",
+      "description": "Cek layanan hidup dan login untuk tiap peran. Menyimpan token ke variabel.",
+      "item": [
+        {
+          "name": "Health check",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('status = ok', () => pm.expect(pm.response.json().status).to.eql('ok'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/health", "host": ["{{baseUrl}}"], "path": ["health"] } }
+        },
+        {
+          "name": "Login admin (simpan adminToken)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('role admin', () => pm.expect(j.role).to.eql('admin'));",
+            "pm.test('ada token', () => pm.expect(j.token).to.be.a('string').and.not.empty);",
+            "pm.collectionVariables.set('adminToken', j.token);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{adminUser}}\",\n  \"password\": \"{{adminPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Login operator (simpan operatorToken)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('role operator', () => pm.expect(j.role).to.eql('operator'));",
+            "pm.collectionVariables.set('operatorToken', j.token);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{operatorUser}}\",\n  \"password\": \"{{operatorPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Login viewer (simpan viewerToken)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('role viewer', () => pm.expect(j.role).to.eql('viewer'));",
+            "pm.collectionVariables.set('viewerToken', j.token);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"{{viewerUser}}\",\n  \"password\": \"{{viewerPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Login — password salah (401)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 401', () => pm.response.to.have.status(401));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"salah\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Login — token lama (backward compat)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('role admin', () => pm.expect(pm.response.json().role).to.eql('admin'));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"change_me_admin_token\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/auth/login", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Me — peran token saat ini",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ada role', () => pm.expect(pm.response.json().role).to.be.a('string'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/auth/me", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","me"] } }
+        },
+        {
+          "name": "Roles — peran terkonfigurasi",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/auth/roles", "host": ["{{baseUrl}}"], "path": ["api","v1","auth","roles"] } }
+        }
+      ]
+    },
+    {
+      "name": "01 · A — Patient OpenMRS → OpenEMR (adapter)",
+      "description": "Alur A: tarik Patient dari OpenMRS (mock) lalu teruskan lewat adapter middleware ke OpenEMR. Menunjukkan peran adapter.",
+      "item": [
+        {
+          "name": "A1 · OpenMRS (mock) — tarik Patient MRN-001",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Bundle', () => pm.expect(pm.response.json().resourceType).to.eql('Bundle'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{openmrsUrl}}/Patient?identifier={{patientMrn}}", "host": ["{{openmrsUrl}}"], "path": ["Patient"], "query": [{ "key": "identifier", "value": "{{patientMrn}}" }] } }
+        },
+        {
+          "name": "A2 · Middleware — enqueue Patient → OpenEMR",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ok', () => pm.expect(j.ok).to.eql(true));",
+            "pm.test('ada job_id', () => pm.expect(j.job_id).to.be.a('string'));",
+            "pm.collectionVariables.set('openemrJobId', j.job_id);",
+            "pm.collectionVariables.set('lastJobId', j.job_id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"openemr\",\n  \"resource\": {\n    \"resourceType\": \"Patient\",\n    \"identifier\": [{\"system\": \"http://openmrs.org/mrn\", \"value\": \"{{patientMrn}}\"}],\n    \"name\": [{\"family\": \"Santoso\", \"given\": [\"Budi\"]}],\n    \"gender\": \"male\",\n    \"birthDate\": \"1985-04-12\"\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "A3 · Middleware — detail job (poll status)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('punya status', () => pm.expect(pm.response.json().status).to.be.a('string'));",
+            "// Tunggu ±5 dtk lalu kirim ulang bila masih pending/processing."
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{openemrJobId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","{{openemrJobId}}"] } }
+        },
+        {
+          "name": "A4 · OpenEMR (mock) — verifikasi Patient mendarat",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const b = pm.response.json();",
+            "pm.test('Patient ditemukan di OpenEMR', () => pm.expect(b.total).to.be.at.least(1));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{openemrUrl}}/Patient?identifier={{patientMrn}}", "host": ["{{openemrUrl}}"], "path": ["Patient"], "query": [{ "key": "identifier", "value": "{{patientMrn}}" }] } }
+        }
+      ]
+    },
+    {
+      "name": "02 · B — OpenMRS → SATUSEHAT (Patient/Encounter/Observation)",
+      "description": "Alur B: teruskan Patient, Encounter (transaction Bundle Encounter+Condition), dan Observation ke SATUSEHAT via adapter middleware. Semua harus mendarat di SATUSEHAT (mock).",
+      "item": [
+        {
+          "name": "B1 · enqueue Patient → SATUSEHAT",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ok', () => pm.expect(j.ok).to.eql(true));",
+            "pm.collectionVariables.set('satusehatPatientJobId', j.job_id);",
+            "pm.collectionVariables.set('lastJobId', j.job_id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"satusehat\",\n  \"resource\": {\n    \"resourceType\": \"Patient\",\n    \"identifier\": [{\"system\": \"http://openmrs.org/mrn\", \"value\": \"{{patientMrn}}\"}],\n    \"name\": [{\"text\": \"Budi Santoso\"}]\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "B2 · enqueue Encounter → SATUSEHAT (transaction Bundle + Condition)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ok', () => pm.expect(j.ok).to.eql(true));",
+            "pm.collectionVariables.set('satusehatEncounterJobId', j.job_id);",
+            "pm.collectionVariables.set('lastJobId', j.job_id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"satusehat\",\n  \"resource\": {\n    \"resourceType\": \"Encounter\",\n    \"status\": \"finished\",\n    \"class\": {\"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\", \"code\": \"AMB\"},\n    \"subject\": {\"reference\": \"Patient/{{patientMrn}}\"},\n    \"period\": {\"start\": \"2026-01-10T09:00:00+00:00\"},\n    \"serviceProvider\": {\"reference\": \"Organization/1000001\"},\n    \"statusHistory\": [{\"status\": \"finished\", \"period\": {\"start\": \"2026-01-10T09:00:00+00:00\", \"end\": \"2026-01-10T09:30:00+00:00\"}}],\n    \"diagnosis\": [{\"condition\": {\"reference\": \"Condition/example\"}, \"use\": {\"coding\": [{\"system\": \"http://terminology.hl7.org/CodeSystem/diagnosis-role\", \"code\": \"billing\"}]}}]\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "B3 · enqueue Observation (vital-signs) → SATUSEHAT",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ok', () => pm.expect(j.ok).to.eql(true));",
+            "pm.collectionVariables.set('satusehatObsJobId', j.job_id);",
+            "pm.collectionVariables.set('lastJobId', j.job_id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"satusehat\",\n  \"resource\": {\n    \"resourceType\": \"Observation\",\n    \"status\": \"final\",\n    \"code\": {\"text\": \"body_temp\"},\n    \"subject\": {\"reference\": \"Patient/{{patientMrn}}\"},\n    \"effectiveDateTime\": \"2026-01-10T09:15:00+00:00\",\n    \"issued\": \"2026-01-10T09:15:00+00:00\",\n    \"valueQuantity\": {\"value\": 36.8, \"unit\": \"Cel\"}\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "B4 · detail job Observation SATUSEHAT",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{satusehatObsJobId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","{{satusehatObsJobId}}"] } }
+        },
+        {
+          "name": "B5 · SATUSEHAT (mock) — verifikasi Observation (LOINC 8310-5 + IHS)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const b = pm.response.json();",
+            "pm.test('ada Observation', () => pm.expect(b.total).to.be.at.least(1));",
+            "const r = (b.entry && b.entry[0] && b.entry[0].resource) || {};",
+            "const coding = ((r.code || {}).coding || [])[0] || {};",
+            "pm.test('LOINC 8310-5', () => pm.expect(coding.code).to.eql('8310-5'));",
+            "pm.test('subject IHS', () => pm.expect((r.subject || {}).reference).to.include('Patient/{{ihs}}'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{satusehatUrl}}/Observation?code=8310-5", "host": ["{{satusehatUrl}}"], "path": ["Observation"], "query": [{ "key": "code", "value": "8310-5" }] } }
+        }
+      ]
+    },
+    {
+      "name": "03 · C — Observasi, Idempotency & Konflik",
+      "description": "Lihat daftar job & metrik; uji idempotency (kirim ulang = skip) dan deteksi konflik (versi berbeda).",
+      "item": [
+        {
+          "name": "C1 · list jobs",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/jobs?limit=50", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs"], "query": [{ "key": "limit", "value": "50" }] } }
+        },
+        {
+          "name": "C2 · idempotency — kirim ulang Patient sama (harus skip)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ok', () => pm.expect(pm.response.json().ok).to.eql(true));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"openemr\",\n  \"resource\": {\n    \"resourceType\": \"Patient\",\n    \"identifier\": [{\"system\": \"http://openmrs.org/mrn\", \"value\": \"{{patientMrn}}\"}],\n    \"name\": [{\"family\": \"Santoso\", \"given\": [\"Budi\"]}],\n    \"gender\": \"male\",\n    \"birthDate\": \"1985-04-12\"\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "C3 · konflik — kirim versi berbeda (harus needs_review)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ok', () => pm.expect(j.ok).to.eql(true));",
+            "pm.collectionVariables.set('lastJobId', j.job_id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"source_system\": \"openmrs\",\n  \"target_system\": \"openemr\",\n  \"version\": \"v2\",\n  \"resource\": {\n    \"resourceType\": \"Patient\",\n    \"identifier\": [{\"system\": \"http://openmrs.org/mrn\", \"value\": \"{{patientMrn}}\"}],\n    \"name\": [{\"family\": \"Berubah\", \"given\": [\"Budi\"]}],\n    \"gender\": \"male\",\n    \"birthDate\": \"1985-04-12\"\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/enqueue", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","enqueue"] }
+          }
+        },
+        {
+          "name": "C4 · list konflik (simpan conflictId)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const arr = pm.response.json();",
+            "pm.test('array', () => pm.expect(arr).to.be.an('array'));",
+            "if (arr.length) pm.collectionVariables.set('conflictId', arr[0].id);"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/conflicts", "host": ["{{baseUrl}}"], "path": ["api","v1","conflicts"] } }
+        },
+        {
+          "name": "C5 · resolve konflik (operator)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ok', () => pm.expect(pm.response.json().ok).to.eql(true));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"note\": \"Ditandai selesai dari Postman\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/conflicts/{{conflictId}}/resolve", "host": ["{{baseUrl}}"], "path": ["api","v1","conflicts","{{conflictId}}","resolve"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 · D — RBAC (kontrol akses per peran)",
+      "description": "Buktikan RBAC: viewer hanya baca; aksi tulis dengan viewer = 403; operator/admin boleh.",
+      "item": [
+        {
+          "name": "D1 · viewer boleh GET /jobs",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200 (viewer read)', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{viewerToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs?limit=1", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs"], "query": [{ "key": "limit", "value": "1" }] }
+          }
+        },
+        {
+          "name": "D2 · viewer DILARANG retry job (harus 403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 403 (viewer ditolak)', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{viewerToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "" },
+            "url": { "raw": "{{baseUrl}}/api/v1/jobs/{{lastJobId}}/retry", "host": ["{{baseUrl}}"], "path": ["api","v1","jobs","{{lastJobId}}","retry"] }
+          }
+        },
+        {
+          "name": "D3 · operator boleh cek konektivitas",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200 (operator)', () => pm.response.to.have.status(200));",
+            "pm.test('ada ok', () => pm.expect(pm.response.json()).to.have.property('ok'));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{operatorToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/v1/systems/openmrs/check", "host": ["{{baseUrl}}"], "path": ["api","v1","systems","openmrs","check"] }
+          }
+        },
+        {
+          "name": "D4 · operator DILARANG buat inbound policy (harus 403)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 403 (butuh admin)', () => pm.response.to.have.status(403));"
+          ]}}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{operatorToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"resource_type\": \"Observation\",\n  \"target_system\": \"openmrs\",\n  \"filter\": {\"category\": \"vital-signs\"}\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound-policies", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound-policies"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 · E — Inbound selektif & SSRME",
+      "description": "Tarik data dari SATUSEHAT (read-only), buat policy inbound (admin), pull, dan uji SSRME CHLink/SHLink.",
+      "item": [
+        {
+          "name": "E1 · inbound read Patient by IHS (read-only)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ada ok', () => pm.expect(pm.response.json()).to.have.property('ok'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound/Patient?identifier=https://fhir.kemkes.go.id/id/ihs-number%7C{{ihs}}", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound","Patient"], "query": [{ "key": "identifier", "value": "https://fhir.kemkes.go.id/id/ihs-number|{{ihs}}" }] } }
+        },
+        {
+          "name": "E2 · buat inbound policy (admin)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ada id', () => pm.expect(j.id).to.be.a('string'));",
+            "pm.collectionVariables.set('policyId', j.id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"resource_type\": \"Observation\",\n  \"target_system\": \"openmrs\",\n  \"filter\": {\"category\": \"vital-signs\"},\n  \"enabled\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound-policies", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound-policies"] }
+          }
+        },
+        {
+          "name": "E3 · list inbound policies",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound-policies", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound-policies"] } }
+        },
+        {
+          "name": "E4 · trigger pull (operator)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ada results', () => pm.expect(pm.response.json()).to.have.property('results'));"
+          ]}}],
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound/pull", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound","pull"] } }
+        },
+        {
+          "name": "E5 · SSRME CHLink (consent)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"patient_id\": \"{{ihs}}\",\n  \"patient_name\": \"Budi Santoso\",\n  \"practitioner_id\": \"{{practitionerIhs}}\",\n  \"practitioner_name\": \"dr. Contoh\",\n  \"organization_id\": \"{{orgId}}\",\n  \"organization_name\": \"STAGING\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/ssrme/chlink", "host": ["{{baseUrl}}"], "path": ["api","v1","ssrme","chlink"] }
+          }
+        },
+        {
+          "name": "E6 · SSRME SHLink (akses RME/darurat)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"patient_id\": \"{{ihs}}\",\n  \"patient_name\": \"Budi Santoso\",\n  \"practitioner_id\": \"{{practitionerIhs}}\",\n  \"practitioner_name\": \"dr. Contoh\",\n  \"organization_id\": \"{{orgId}}\",\n  \"organization_name\": \"STAGING\",\n  \"emergency\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/ssrme/shlink", "host": ["{{baseUrl}}"], "path": ["api","v1","ssrme","shlink"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 · F — Metrics, Audit & Observability",
+      "description": "Metrik agregat, tren, Prometheus, audit log + ekspor CSV, daftar sistem, mappings.",
+      "item": [
+        {
+          "name": "F1 · metrics",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ada total_jobs', () => pm.expect(pm.response.json()).to.have.property('total_jobs'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/metrics", "host": ["{{baseUrl}}"], "path": ["api","v1","metrics"] } }
+        },
+        {
+          "name": "F2 · metrics timeline",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/metrics/timeline", "host": ["{{baseUrl}}"], "path": ["api","v1","metrics","timeline"] } }
+        },
+        {
+          "name": "F3 · Prometheus (tanpa auth)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('teks prometheus', () => pm.expect(pm.response.text()).to.include('#'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/metrics/prometheus", "host": ["{{baseUrl}}"], "path": ["api","v1","metrics","prometheus"] } }
+        },
+        {
+          "name": "F4 · audit log",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/audit?limit=20", "host": ["{{baseUrl}}"], "path": ["api","v1","audit"], "query": [{ "key": "limit", "value": "20" }] } }
+        },
+        {
+          "name": "F5 · audit export CSV",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('CSV', () => pm.expect(pm.response.headers.get('content-type') || '').to.include('csv'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/audit/export.csv", "host": ["{{baseUrl}}"], "path": ["api","v1","audit","export.csv"] } }
+        },
+        {
+          "name": "F6 · daftar sistem",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/systems", "host": ["{{baseUrl}}"], "path": ["api","v1","systems"] } }
+        },
+        {
+          "name": "F7 · daftar mappings",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/mappings", "host": ["{{baseUrl}}"], "path": ["api","v1","mappings"] } }
+        }
+      ]
+    }
+  ]
+}
