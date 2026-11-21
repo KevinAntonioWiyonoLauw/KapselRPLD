@@ -17,15 +17,12 @@ test("dashboard loads with KPI cards and 6 tabs", async ({ page }) => {
   }
 });
 
-test("tabs navigate and jobs tab shows pagination", async ({ page }) => {
+test("tabs navigate and jobs tab shows the jobs panel", async ({ page }) => {
   await waitLoaded(page);
   await page.getByRole("tab", { name: "Pekerjaan" }).click();
-  // Fresh CI DB may have zero jobs (empty state) -> pagination may be absent.
-  // Accept either the pagination range or the explicit empty state.
-  await expect(
-    page.getByText(/Menampilkan\s+\d+[–-]\d+\s+dari\s+\d+\s+pekerjaan/)
-      .or(page.getByText("Belum ada data"))
-  ).toBeVisible();
+  // The jobs panel header is always present after navigating to the tab,
+  // regardless of how many jobs exist (fresh CI DB may have zero).
+  await expect(page.getByText("Riwayat pekerjaan sinkronisasi")).toBeVisible();
 });
 
 test("dark mode toggle applies and persists across reload", async ({ page }) => {
