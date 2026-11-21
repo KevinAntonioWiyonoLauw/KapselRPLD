@@ -101,4 +101,4 @@ docker compose -f docker-compose.yml -f docker-compose.ehr.yml --profile ehr up 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/test-all.ps1
 ```
-(unit 81 · integration 19 · e2e 3 = 103 lulus + 5 Playwright dashboard)
+(unit 81 · integration 21 · e2e 3 = 105 lulus + 8 Playwright dashboard)

@@ -87,6 +87,10 @@ def seed_mappings(db, openmrs, openemr, satusehat):
         # source MRN -> SATUSEHAT IHS number
         (openmrs, satusehat, "MRN-001", "100000030009", "ihs"),
         (openmrs, satusehat, "MRN-002", "100000030010", "ihs"),
+        # source OpenEMR patient identifier -> SATUSEHAT IHS number
+        # (melengkapi arah OpenEMR -> SATUSEHAT; Patient OpenEMR membawa identifier MRN yang sama)
+        (openemr, satusehat, "MRN-001", "100000030009", "ihs"),
+        (openemr, satusehat, "MRN-002", "100000030010", "ihs"),
     ]
     for src, tgt, sid, tid, itype in rows:
         exists = db.execute(select(IdentifierMapping).where(

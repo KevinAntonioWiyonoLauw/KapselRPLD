@@ -30,24 +30,40 @@ identity → transform → validate(target) → search-before-create (idempotenc
 ## Diagram
 
 ```
-┌─────────────┐   ┌─────────────┐   ┌────────────────┐
-│ OpenMRS     │   │ OpenEMR     │   │ SATUSEHAT      │
-│ (adapter)   │   │ (adapter)   │   │ (adapter/mock) │
-└──────┬──────┘   └──────┬──────┘   └───────┬────────┘
-       └──────────────┬──┴──────────────────┘
-                      ▼
-        ┌───────────────────────────────┐
-        │  Interoperability Core (hub)  │
-        │  transform · identity ·        │
-        │  validate · policy · conflict  │
-        └───────────────┬───────────────┘
-                        ▼
-        ┌───────────────────────────────┐
-        │ Queue/Worker · Retry ·         │
-        │ Scheduler · Audit · Postgres   │
-        │ Management API · Dashboard     │
-        └───────────────────────────────┘
+        ┌───────────────┐        ┌───────────────┐        ┌────────────────┐
+        │   OpenMRS     │◄──────►│   OpenEMR     │◄──────►│   SATUSEHAT    │
+        │ (adapter)     │        │ (adapter)     │        │ (adapter/mock) │
+        └───────┬───────┘        └───────┬───────┘        └───────┬────────┘
+                │                        │                        │
+                └────────────┬───────────┴────────────┬───────────┘
+                             ▼                          ▼
+              ┌───────────────────────────────────────────────┐
+              │   ADAPTER LAYER = HUB (penyambung semua arah)  │
+              │   Interoperability Core:                       │
+              │   transform · identity mapping · validate ·    │
+              │   policy · conflict · terminology              │
+              └───────────────────────┬───────────────────────┘
+                                      ▼
+              ┌───────────────────────────────────────────────┐
+              │ Queue/Worker · Retry · Scheduler · Audit ·     │
+              │ Postgres · Management API · Dashboard          │
+              └───────────────────────────────────────────────┘
 ```
+
+**Adapter adalah hub pusat**: setiap pasangan sistem berkomunikasi **lewat adapter**
+(bukan hanya OpenMRS sebagai sumber). Arah yang didukung:
+
+| Sumber | Tujuan | Arah |
+|--------|--------|------|
+| OpenMRS | OpenEMR | Bidirectional (kebijakan per-resource) |
+| OpenMRS | SATUSEHAT | Outbound |
+| OpenEMR | SATUSEHAT | Outbound |
+| SATUSEHAT | OpenMRS / OpenEMR | Inbound selektif (policy) |
+| Middleware | OpenMRS / OpenEMR | Controlled inbound (validasi, mapping, konflik) |
+
+Implementasi: `POST /jobs/enqueue` menerima `source_system` & `target_system` bebas;
+inbound lewat `services/inbound.py` + `POST /satusehat/inbound/pull`. Identitas lintas
+sistem (mis. OpenEMR ↔ SATUSEHAT) memakai `identifier_mapping` terverifikasi.
 
 ## Prinsip kunci
 

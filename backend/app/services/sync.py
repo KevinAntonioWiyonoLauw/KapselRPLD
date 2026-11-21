@@ -219,7 +219,12 @@ async def _profile_gate(db: Session, job: SyncJob, resources: list[dict], record
 
 
 async def _process_satusehat(db: Session, job: SyncJob, resource: dict, record) -> SyncJob:
-    """Automatic pipeline: OpenMRS resource -> SATUSEHAT (real sandbox/production)."""
+    """Automatic SATUSEHAT pipeline (target = SATUSEHAT, real sandbox/production).
+
+    Source-agnostic: the source EHR can be OpenMRS *or* OpenEMR (the adapter hub
+    routes any EHR -> SATUSEHAT). Patient IHS is resolved from a verified mapping
+    for the actual source system, falling back to MPI-by-NIK.
+    """
     org = settings.satusehat_org_id
     if not org:
         job.status = "needs_review"
