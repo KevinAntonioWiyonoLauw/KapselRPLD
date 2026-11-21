@@ -482,6 +482,21 @@ def _obs_terminology(resource: dict) -> tuple[str, str, str]:
 
 
 async def process_job(db: Session, job: SyncJob) -> SyncJob:
+    """Execute a single sync job and record observability metrics (#16)."""
+    import time
+    from app.core import metrics as prom
+    t0 = time.perf_counter()
+    result = await _process_job_impl(db, job)
+    try:
+        target = db.get(ExternalSystem, job.target_system_id)
+        prom.record_job(job.resource_type, target.name if target else "unknown",
+                        result.status, time.perf_counter() - t0)
+    except Exception:  # noqa: BLE001  (metrics must never break processing)
+        pass
+    return result
+
+
+async def _process_job_impl(db: Session, job: SyncJob) -> SyncJob:
     """Execute a single sync job. Mutates job.status and records an attempt."""
     source = db.get(ExternalSystem, job.source_system_id)
     target = db.get(ExternalSystem, job.target_system_id)

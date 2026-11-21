@@ -86,6 +86,9 @@ class Settings(BaseSettings):
     force_https: bool = False                   # redirect HTTP->HTTPS (set true in production behind TLS proxy)
     hsts_max_age: int = 31536000                # HSTS max-age seconds (1 year)
     allowed_hosts: str = ""                     # comma-separated allowlist; empty = accept all
+    # Observability (#16)
+    log_format: str = "text"                     # text | json (structured logs)
+    metrics_enabled: bool = True                 # expose /metrics/prometheus
 
 
 @lru_cache

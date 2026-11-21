@@ -9,10 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import audit, conflicts, health, inbound, jobs, mappings, metrics, ssrme, systems
 from app.config import settings
 from app.db.session import init_db
+from app.logging_setup import configure_logging
 from app.middleware.https import HTTPSRedirectMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.middleware.security_headers import SecurityHeadersMiddleware
 
+configure_logging()
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("api")
 

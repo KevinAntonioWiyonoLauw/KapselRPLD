@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_operator
+from app.core import metrics as prom
 from app.db.session import get_db
 from app.models import JobAttempt, SyncJob
 
@@ -57,3 +59,18 @@ async def metrics_timeline(db: Session = Depends(get_db), _: str = Depends(requi
         {"hour": b.isoformat() if b else None, "count": c}
         for b, c in rows
     ]
+
+
+@router.get("/prometheus")
+async def metrics_prometheus(db: Session = Depends(get_db)):
+    """Prometheus exposition (scrape target). No auth: scraped internally.
+
+    Refresh DB-derived gauges at scrape time so the values are correct regardless
+    of which worker processed the jobs.
+    """
+    from fastapi import HTTPException
+    from app.config import settings
+    if not settings.metrics_enabled:
+        raise HTTPException(404, "metrics disabled")
+    prom.refresh_db_metrics(db)
+    return Response(content=prom.render(), media_type="text/plain; version=0.0.4")
