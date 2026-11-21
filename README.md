@@ -83,6 +83,10 @@ powershell -ExecutionPolicy Bypass -File scripts/demo.ps1
 Skrip akan meng-enqueue Patient/Encounter/Observation, menunggu worker,
 lalu menampilkan status job, metrik, dan data yang mendarat di target.
 
+**Postman:** `postman/KapselRPLD.postman_collection.json` (39 request, alur A–F + test)
+dengan dua environment (Local mock & Real sandbox). Lihat `postman/README.md` untuk
+naskah demo & cara presentasi.
+
 ## Mode
 
 - **mock** (default): EHR & SATUSEHAT disimulasikan service `mocks/`. Cocok untuk dev.
