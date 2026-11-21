@@ -1,0 +1,14 @@
+# Caddy reverse proxy: TLS termination in front of the API.
+# Internal CA issues a self-signed cert for localhost (local demo). Replace the
+# site address + TLS config with real certs (or use an ACME-enabled hostname).
+{
+	auto_https disable_redirects
+}
+
+localhost:8443 {
+	tls internal
+	encode gzip
+	reverse_proxy backend:8000 {
+		header_up X-Forwarded-Proto https
+	}
+}

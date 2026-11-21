@@ -82,6 +82,10 @@ class Settings(BaseSettings):
     # Hardening
     payload_retention_on_success: bool = True   # clear stored payload after success (privacy)
     rate_limit_per_minute: int = 120            # max admin API requests/min per IP (0 = disabled)
+    # Security (#17)
+    force_https: bool = False                   # redirect HTTP->HTTPS (set true in production behind TLS proxy)
+    hsts_max_age: int = 31536000                # HSTS max-age seconds (1 year)
+    allowed_hosts: str = ""                     # comma-separated allowlist; empty = accept all
 
 
 @lru_cache

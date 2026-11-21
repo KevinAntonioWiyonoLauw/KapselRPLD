@@ -9,7 +9,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import audit, conflicts, health, inbound, jobs, mappings, metrics, ssrme, systems
 from app.config import settings
 from app.db.session import init_db
+from app.middleware.https import HTTPSRedirectMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("api")
@@ -26,7 +28,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Starlette applies middleware in reverse order of addition: the last added runs
+# first. Security headers is added first so it wraps everything and stamps every
+# response (including redirects/errors). HTTPS redirect then runs before routing.
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(HTTPSRedirectMiddleware)
 app.add_middleware(RateLimitMiddleware)
+if settings.allowed_hosts.strip():
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=[h.strip() for h in settings.allowed_hosts.split(",") if h.strip()],
+    )
 
 app.include_router(health.router)
 app.include_router(systems.router, prefix="/api/v1")
