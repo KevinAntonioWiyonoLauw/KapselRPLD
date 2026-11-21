@@ -5,7 +5,7 @@
 | Suite | Lokasi | Jumlah | Status |
 |-------|--------|--------|--------|
 | Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, profile-gate, inbound helpers, ssrme, security middleware, audit fixes) | `backend/tests/unit` | 67 | ✅ lulus |
-| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline, satusehat condition, profile-gate DB, inbound policy DB, migrations) | `backend/tests/integration` | 19 | ✅ lulus |
+| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline, satusehat condition, satusehat source-agnostic (OpenEMR→SATUSEHAT), profile-gate DB, inbound policy DB, migrations) | `backend/tests/integration` | 21 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
 | Dashboard e2e + a11y (Playwright + axe) | `frontend/e2e` | 8 | ✅ lulus |
 
@@ -29,15 +29,16 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 | TC-12 | **Sinkronisasi dua arah OpenMRS↔OpenEMR** | ✅ OpenMRS→OpenEMR & OpenEMR→OpenMRS sukses; mapping dua arah tersimpan |
 | TC-13 | **Deteksi konflik** | ✅ Nilai sumber≠tujuan → job `needs_review` + tercatat di `/conflicts` |
 | TC-14 | **Kirim Patient+Encounter+Observation ke OpenMRS NYATA** | ✅ Patient/Encounter/Observation `success`, terverifikasi di DB OpenMRS (lihat `docs/openmrs-real-integration.md`) |
+| TC-15 | **Arah OpenEMR→SATUSEHAT (adapter hub)** | ✅ Patient OpenEMR→SATUSEHAT `success`; IHS di-resolve via mapping `openemr→satusehat` (regression test) |
 
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
 | Unit | 81 | transform (termasuk aturan OpenEMR + OpenMRS: identifier preferred/type/lokasi, Encounter.type UUID), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder (termasuk multi-diagnosis→Condition), conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3), ekstraksi diagnosis, profile-gate helper, inbound helpers, SSRME URL, security headers/HTTPS middleware, observability (metrics/logging), mock persistence, rate-limit stores, RBAC |
-| Integration | 19 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) + openmrs pipeline (identifier preferred + Encounter.type UUID + subject→uuid) + satusehat condition pipeline (semua diagnosis → Condition) + profile-gate (invalid→needs_review, valid→delivered) + inbound policy (tarik + idempotent) + Alembic (drift check, version table) |
+| Integration | 21 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) + openmrs pipeline (identifier preferred + Encounter.type UUID + subject→uuid) + satusehat condition pipeline (semua diagnosis → Condition) + **satusehat source-agnostic (OpenEMR→SATUSEHAT + seed mapping)** + profile-gate (invalid→needs_review, valid→delivered) + inbound policy (tarik + idempotent) + Alembic (drift check, version table) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **103 test lulus** (81 + 19 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **105 test lulus** (81 + 21 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Coverage
 CI menjalankan **unit + integration** dengan `pytest-cov` dan **gate** `--cov-fail-under=50`

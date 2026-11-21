@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "KapselRPLD — Interoperabilitas FHIR (Demo & Test)",
-    "description": "Koleksi Postman untuk KapselRPLD (OpenMRS ↔ OpenEMR ↔ SATUSEHAT).\n\n## Cara pakai\n1. Import collection + environment (KapselRPLD — Local (mock)). Pilih environment di kanan atas.\n2. Jalankan stack: `docker compose up -d --build` lalu `docker compose exec backend python seed.py`.\n3. Pastikan `.env`: SATUSEHAT_MODE=mock, OPENMRS_MODE=mock, OPENEMR_MODE=mock (untuk demo penuh offline).\n4. Buka folder sesuai alur presentasi (lihat README di folder postman/).\n\n## Otomatis\n- Collection pre-request script login `admin` otomatis dan menyimpan `adminToken`.\n- Request login juga menyimpan `adminToken` / `operatorToken` / `viewerToken`.\n- Setiap request punya test (status code + assert kunci).\n\n## Alur presentasi (ringkas)\nA. Patient dari OpenMRS → OpenEMR (adapter).\nB. Patient/Encounter/Observation dari OpenMRS → SATUSEHAT (adapter, pakai builder transaction Bundle).\nC. Observasi + Idempotency + Konflik.\nD. RBAC (viewer ditolak, operator/admin diizinkan).\nE. Inbound selektif dari SATUSEHAT + SSRME.\nF. Operasional (metrics/audit/prometheus).",
+    "description": "Koleksi Postman untuk KapselRPLD (OpenMRS ↔ OpenEMR ↔ SATUSEHAT).\n\n## Cara pakai\n1. Import collection + environment (KapselRPLD — Local (mock)). Pilih environment di kanan atas.\n2. Jalankan stack: `docker compose up -d --build` lalu `docker compose exec backend python seed.py`.\n3. Pastikan `.env`: SATUSEHAT_MODE=mock, OPENMRS_MODE=mock, OPENEMR_MODE=mock (untuk demo penuh offline).\n4. Buka folder sesuai alur presentasi (lihat README di folder postman/).\n\n## Otomatis\n- Collection pre-request script login `admin` otomatis dan menyimpan `adminToken`.\n- Request login juga menyimpan `adminToken` / `operatorToken` / `viewerToken`.\n- Setiap request punya test (status code + assert kunci).\n\n## Alur presentasi (ringkas)\nA. Patient dari OpenMRS → OpenEMR (adapter).\nB. Patient/Encounter/Observation dari OpenMRS → SATUSEHAT (adapter, pakai builder transaction Bundle).\nC. Observasi + Idempotency + Konflik.\nD. RBAC (viewer ditolak, operator/admin diizinkan).\nE. Inbound selektif dari SATUSEHAT + SSRME.\nF. Operasional (metrics/audit/prometheus). G. Controlled inbound: SATUSEHAT ke OpenMRS (policy pull).\n\nAdapter = HUB penyambung SEMUA arah: OpenMRS<->OpenEMR, OpenMRS->SATUSEHAT, OpenEMR->SATUSEHAT, SATUSEHAT->OpenMRS/OpenEMR. Bukan hanya OpenMRS sebagai sumber.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -496,6 +496,50 @@
             "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
           ]}}],
           "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/mappings", "host": ["{{baseUrl}}"], "path": ["api","v1","mappings"] } }
+        }
+      ]
+    },
+    {
+      "name": "07 · G — Controlled inbound (SATUSEHAT → OpenMRS)",
+      "description": "Arah masuk (inbound): SATUSEHAT → middleware (validasi, mapping, konflik) → OpenMRS. Membuktikan adapter sebagai hub dua arah (bukan hanya mengirim keluar).",
+      "item": [
+        {
+          "name": "G1 · buat inbound policy SATUSEHAT→OpenMRS (admin)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "const j = pm.response.json();",
+            "pm.test('ada id', () => pm.expect(j.id).to.be.a('string'));",
+            "pm.collectionVariables.set('policyId', j.id);"
+          ]}}],
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"resource_type\": \"Observation\",\n  \"target_system\": \"openmrs\",\n  \"filter\": {\"category\": \"vital-signs\"},\n  \"enabled\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound-policies", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound-policies"] }
+          }
+        },
+        {
+          "name": "G2 · trigger pull (SATUSEHAT → OpenMRS)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ada results', () => pm.expect(pm.response.json()).to.have.property('results'));"
+          ]}}],
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound/pull", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound","pull"] } }
+        },
+        {
+          "name": "G3 · verifikasi mapping SATUSEHAT→OpenMRS",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+          ]}}],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/mappings", "host": ["{{baseUrl}}"], "path": ["api","v1","mappings"] } }
+        },
+        {
+          "name": "G4 · hapus inbound policy (bersih-bersih)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('status 200', () => pm.response.to.have.status(200));",
+            "pm.test('ok', () => pm.expect(pm.response.json().ok).to.eql(true));"
+          ]}}],
+          "request": { "method": "DELETE", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/satusehat/inbound-policies/{{policyId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","satusehat","inbound-policies","{{policyId}}"] } }
         }
       ]
     }

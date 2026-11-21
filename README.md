@@ -25,6 +25,7 @@ Detail: lihat `docs/architecture.md` dan roadmap di `docs/ROADMAP.md`.
 - Integrasi **nyata**: OpenEMR (OAuth password grant) & OpenMRS (reference-app) end-to-end;
   Patient/Encounter/Observation terverifikasi mendarat di database target.
 - **Sinkronisasi dua arah** OpenMRS↔OpenEMR dengan deteksi konflik berbasis versi.
+- **Adapter sebagai hub** semua arah: OpenMRS↔OpenEMR, OpenMRS→SATUSEHAT, **OpenEMR→SATUSEHAT**, dan **SATUSEHAT→OpenMRS/OpenEMR** (inbound selektif via policy).
 
 **Kepatuhan SATUSEHAT**
 - Multi-diagnosis → **Condition** dalam transaction Bundle.

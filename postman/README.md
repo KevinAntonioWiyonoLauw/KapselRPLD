@@ -72,31 +72,51 @@ lalu `docker compose up -d backend worker scheduler`.
 
 ## Konsep alur (yang perlu dipahami saat presentasi)
 
+Model yang benar: **adapter adalah HUB pusat** yang menyambung **semua arah** — bukan
+"OpenMRS sumber, sisanya tujuan".
+
 ```
-   ┌────────────┐     FHIR R4      ┌──────────────────────────┐     FHIR R4      ┌────────────┐
-   │  OpenMRS   │ ──── baca ─────► │      MIDDLEWARE KAPSEL    │ ──── kirim ────► │  OpenEMR   │
-   │ (sumber)   │                  │  adapter + transform +    │                  │ (tujuan)   │
-   └────────────┘                  │  identity mapping +       │                  └────────────┘
-                                   │  validasi + retry/queue   │     FHIR R4      ┌────────────┐
-                                   │                          │ ──── kirim ────► │ SATUSEHAT  │
-                                   └──────────────────────────┘                  │ (nasional) │
-                                                                                 └────────────┘
+                     ┌──────────────────────────────────────────────┐
+                     │               ADAPTER  LAYER                 │
+                     │        (HUB penghubung — semua arah)         │
+                     │                                              │
+   OpenMRS  ◄───────►│   Interoperability Core:                     │◄───────►  OpenEMR
+  (FHIR R4)          │   • transform (IHS, LOINC, profile)          │          (FHIR R4)
+                     │   • identity mapping (lintas sistem)         │
+                     │   • validate (target-aware + HAPI)           │
+                     │   • policy · conflict · terminology          │
+                     │   • queue / worker / retry / audit           │
+                     │                                              │
+  SATUSEHAT ◄───────►│                                              │
+  (FHIR R4)          └──────────────────────────────────────────────┘
+
+  Adapter = penyambung PUSAT. Semua pasangan arah lewat adapter ini:
+  OpenMRS↔OpenEMR · OpenMRS→SATUSEHAT · OpenEMR→SATUSEHAT · SATUSEHAT→OpenMRS · SATUSEHAT→OpenEMR
 ```
 
-Intinya: **data masuk dari sistem sumber (OpenMRS) → middleware melakukan transformasi
-& pemetaan identitas → adapter mengirim ke sistem tujuan (OpenEMR / SATUSEHAT)**.
-Middleware **tidak menyimpan data klinis**, hanya metadata integrasi (mapping, status
-job, audit).
+**Matriks arah (yang dibuktikan):**
 
-Yang dibuktikan koleksi ini:
-- **A** — middleware membaca Patient dari OpenMRS lalu meneruskannya ke OpenEMR.
-- **B** — middleware meneruskan Patient/Encounter/Observation ke **SATUSEHAT**
-  (Encounter dikirim sebagai *transaction Bundle* Encounter+Condition; Observation
-  dipetakan ke **LOINC** dan subjek **IHS**).
+| Sumber | Tujuan | Arah | Kasus |
+|--------|--------|------|-------|
+| OpenMRS | OpenEMR | Bidirectional (kebijakan per-resource) | Ikuti resource & operasi yang tersedia |
+| OpenEMR | SATUSEHAT | Outbound | Kirim resource sesuai use case & profil |
+| OpenMRS | SATUSEHAT | Outbound | Kirim resource sesuai use case & profil |
+| SATUSEHAT | Middleware | Inbound selektif | Hanya operasi & data yang diizinkan |
+| Middleware | OpenMRS / OpenEMR | Controlled inbound | Validasi, mapping, konflik |
+
+> Semua arah di atas **didukung** kode: `POST /jobs/enqueue` menerima `source_system`
+> **dan** `target_system` bebas (openmrs/openemr/satusehat), dan inbound (SATUSEHAT →
+> OpenMRS/OpenEMR) lewat policy (`POST /satusehat/inbound/pull`). Middleware hanya
+> menyimpan metadata integrasi (mapping, status job, audit), **bukan** data klinis.
+
+Yang dibuktikan koleksi ini (contoh per-arah):
+- **A** — OpenMRS → OpenEMR (bidirectional, lewat adapter).
+- **B** — OpenMRS → **SATUSEHAT** (Encounter = *transaction Bundle* Encounter+Condition; Observation dipetakan ke **LOINC** & subjek **IHS**).
 - **C** — idempotency (kirim ulang = dilewati) & deteksi konflik.
 - **D** — RBAC 3 peran.
-- **E** — inbound selektif dari SATUSEHAT + SSRME.
+- **E** — inbound selektif (baca) dari SATUSEHAT + SSRME.
 - **F** — metrik/audit/observability.
+- **G** — **Controlled inbound**: SATUSEHAT → OpenMRS (policy-driven pull).
 
 > Catatan jujur untuk presentasi: di demo, **pemicu** sinkronisasi adalah endpoint
 > `POST /jobs/enqueue` (atau inbound pull dari SATUSEHAT). Pada penerapan nyata,
@@ -154,6 +174,15 @@ Yang dibuktikan koleksi ini:
 ### F · Metrics, Audit, Observability
 - **F1** metrics (success rate, latency), **F2** timeline, **F3** Prometheus.
 - **F4** audit log, **F5** ekspor CSV, **F6** daftar sistem, **F7** mappings.
+
+### G · Controlled inbound — SATUSEHAT → OpenMRS *(adapter hub, arah masuk)*
+- **G1** buat inbound policy (admin): `{resource_type: Observation, target_system: openmrs, filter:{category: vital-signs}}` → simpan `policyId`.
+- **G2** `POST /satusehat/inbound/pull` → jalankan; lihat `pulled/created/skipped/failed`.
+- **G3** `GET /mappings` → verifikasi terbentuk mapping SATUSEHAT → OpenMRS (bukti data mendarat & idempoten).
+- **G4** hapus policy (`DELETE`) untuk bersih-bersih.
+
+> "Ini membuktikan arah **masuk**: SATUSEHAT → middleware (validasi, mapping, konflik) →
+> OpenMRS. Jadi adapter benar-benar hub dua arah, bukan cuma mengirim keluar."
 
 ---
 
