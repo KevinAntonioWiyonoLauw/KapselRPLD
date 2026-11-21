@@ -126,6 +126,20 @@ issue dan **tidak ada yang dikirim** (mencegah data invalid masuk sandbox/produk
   ganti image bila butuh konformansi profil penuh).
 - Diuji: payload invalid → `needs_review` (tak terkirim); payload valid → terkirim.
 
+## 6d. Inbound selektif berbasis policy (#11)
+Selain tarik manual satu-off (`GET /satusehat/inbound/{resource_type}`), ada **pull
+selektif berbasis policy**: pilih resource type + filter, lalu tarik dari SATUSEHAT
+dan simpan ke EHR tujuan (mis. OpenMRS/OpenEMR) beserta `IdentifierMapping` sehingga
+re-run **idempoten** (tidak menduplikasi).
+
+- Policy disimpan di `sync_policies` dengan `direction="inbound"` dan `filter_json`
+  (params pencarian SATUSEHAT, mis. `{"category":"vital-signs"}`).
+- API: `POST/GET/DELETE /api/v1/satusehat/inbound-policies`, dan
+  `POST /api/v1/satusehat/inbound/pull` untuk menjalankan semua policy inbound sekali.
+- Scheduler menjalankan policy inbound tiap `POLL_INTERVAL_SECONDS` (paralel dgn poller).
+- Bukti (mock): seed 2 Observation di SATUSEHAT → `pull` ⇒ `created=2`; `pull` kedua
+  ⇒ `skipped=2`; target EHR berisi 2 Observation.
+
 ## 7. Bukti & cara reproduksi
 
 ```bash

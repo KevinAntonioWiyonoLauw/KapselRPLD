@@ -50,10 +50,11 @@ class SyncPolicy(Base):
     source_system_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("external_systems.id"))
     target_system_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("external_systems.id"))
     resource_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    direction: Mapped[str] = mapped_column(String(20), default="one_way")  # one_way | bidirectional
+    direction: Mapped[str] = mapped_column(String(20), default="one_way")  # one_way | bidirectional | inbound
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     transform_profile: Mapped[str | None] = mapped_column(String(100))
     validation_profile: Mapped[str | None] = mapped_column(String(100))
+    filter_json: Mapped[dict | None] = mapped_column(JSONB)  # inbound: search params (e.g. {"category": "vital-signs"})
     retry_policy_json: Mapped[dict | None] = mapped_column(JSONB)
     conflict_strategy: Mapped[str] = mapped_column(String(30), default="manual_review")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
