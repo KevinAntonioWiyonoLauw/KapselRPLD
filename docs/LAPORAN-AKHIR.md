@@ -12,8 +12,8 @@ Program Studi Ilmu Komputer â€” Fakultas Matematika dan Ilmu Pengetahuan Alam â€
 | Satya Wira Pramudita | 24/543649/PA/23102 |
 | Abdul Hamid Awaludin Ardiansyah | 24/540343/PA/22940 |
 
-> Dokumen ini adalah laporan akhir pelaksanaan atas **Proposal Proyek** (docs/Proposal_Kapsel_RPLD).
-> Struktur bab mengikuti proposal; setiap target proposal dipetakan ke **bukti implementasi & pengujian**.
+> Dokumen ini adalah laporan akhir pelaksanaan proyek.
+> Struktur bab mengikuti kerangka laporan; setiap target dipetakan ke **bukti implementasi & pengujian**.
 > Panduan menjalankan demo: `docs/PANDUAN-DEMO.md`. Integrasi SATUSEHAT: `docs/satusehat-integration.md`.
 
 ---
@@ -318,4 +318,4 @@ powershell -ExecutionPolicy Bypass -File scripts/test-all.ps1
 ![Mappings](screenshots/dashboard-mappings.png)
 
 ---
-*Laporan akhir ini disusun sejalan dengan proposal proyek dan status implementasi aktual (terverifikasi melalui pengujian otomatis dan integrasi sandbox).*
+*Laporan akhir ini disusun berdasarkan status implementasi aktual (terverifikasi melalui pengujian otomatis dan integrasi sandbox).*
