@@ -61,13 +61,26 @@ jobs:
 
       - name: Integration tests
         run: |
-          docker run --rm --network kapselrpld_default --env-file .env \
+          docker run --rm --network kapselrpld_default \
+            -e OPENMRS_MODE=mock -e OPENEMR_MODE=mock -e SATUSEHAT_MODE=mock \
+            -e OPENMRS_MOCK_URL=http://mock-ehr:8100/openmrs \
+            -e OPENEMR_MOCK_URL=http://mock-ehr:8100/openemr \
+            -e SATUSEHAT_MOCK_URL=http://mock-satusehat:8200/fhir-r4/v1 \
+            -e DATABASE_URL=postgresql+psycopg2://middleware:change_me_db@db:5432/middleware \
+            -e ADMIN_API_TOKEN=change_me_admin_token -e APP_ENV=development \
             -v "$PWD/backend:/app" -w /app kapselrpld-backend:latest \
             sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests/integration -q"
 
       - name: End-to-end tests
         run: |
-          docker run --rm --network kapselrpld_default --env-file .env \
+          docker run --rm --network kapselrpld_default \
+            -e OPENMRS_MODE=mock -e OPENEMR_MODE=mock -e SATUSEHAT_MODE=mock \
+            -e OPENMRS_MOCK_URL=http://mock-ehr:8100/openmrs \
+            -e OPENEMR_MOCK_URL=http://mock-ehr:8100/openemr \
+            -e SATUSEHAT_MOCK_URL=http://mock-satusehat:8200/fhir-r4/v1 \
+            -e DATABASE_URL=postgresql+psycopg2://middleware:change_me_db@db:5432/middleware \
+            -e ADMIN_API_TOKEN=change_me_admin_token -e APP_ENV=development \
+            -e API_BASE=http://backend:8000 \
             -v "$PWD/backend:/app" -w /app kapselrpld-backend:latest \
             sh -c "pip install -q pytest pytest-asyncio && python -m pytest tests/e2e -q"
 
