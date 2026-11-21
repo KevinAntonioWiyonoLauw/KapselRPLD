@@ -38,8 +38,18 @@ docker compose logs -f scheduler
 docker compose exec db psql -U middleware -d middleware \
   -c "TRUNCATE sync_jobs, job_attempts, conflicts, audit_log RESTART IDENTITY CASCADE;"
 
-# reset total termasuk DB volume (HATI-HATI: hapus semua)
+# reset total termasuk DB volume (HATI-HATI: hapus semua, termasuk state mock)
 docker compose down -v
+```
+
+## Persistensi mock (#18)
+Mock EHR & SATUSEHAT menyimpan state ke volume bernama (`mock_ehr_data`,
+`mock_satusehat_data`) via `MOCK_PERSIST_DIR=/data`, sehingga data mock **bertahan**
+saat container restart. Untuk mengosongkan state mock saja:
+```bash
+docker compose rm -sf mock-ehr mock-satusehat
+docker volume rm kapselrpld_mock_ehr_data kapselrpld_mock_satusehat_data
+docker compose up -d mock-ehr mock-satusehat
 ```
 
 ## Menjalankan test

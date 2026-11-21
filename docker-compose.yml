@@ -20,16 +20,22 @@ services:
     environment:
       MOCK_ROLE: ehr
       MOCK_PORT: "8100"
+      MOCK_PERSIST_DIR: /data
     ports:
       - "8100:8100"
+    volumes:
+      - mock_ehr_data:/data
 
   mock-satusehat:
     build: ./mocks
     environment:
       MOCK_ROLE: satusehat
       MOCK_PORT: "8200"
+      MOCK_PERSIST_DIR: /data
     ports:
       - "8200:8200"
+    volumes:
+      - mock_satusehat_data:/data
 
   # HAPI-style FHIR profile validator (validates before delivery to SATUSEHAT).
   # Lightweight stand-in for hapi-fhir-validation; replace the image with a real
@@ -102,3 +108,5 @@ services:
 
 volumes:
   pgdata:
+  mock_ehr_data:
+  mock_satusehat_data:
