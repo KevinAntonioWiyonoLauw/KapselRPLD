@@ -53,3 +53,16 @@ def test_observation_unknown_concept_not_mapped():
     # Must NOT invent a LOINC code
     assert out["code"].get("text") == "unknown_concept"
     assert "coding" not in out["code"]
+
+
+def test_patient_to_openemr_sets_official_name():
+    out = transform.transform(_patient(), "openemr", {})
+    assert out["name"][0]["use"] == "official"
+
+
+def test_observation_to_openemr_adds_category():
+    obs = {"resourceType": "Observation", "status": "final",
+           "code": {"coding": [{"system": "http://loinc.org", "code": "8867-4"}]},
+           "subject": {"reference": "Patient/1"}}
+    out = transform.transform(obs, "openemr", {"patient_ref": "Patient/1"})
+    assert out["category"][0]["coding"][0]["code"] == "vital-signs"

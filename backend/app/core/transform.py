@@ -36,6 +36,10 @@ def transform_patient(resource: dict, target_system: str, ctx: dict) -> dict:
         if ctx.get("nik"):
             out["identifier"].append({"system": "https://fhir.kemkes.go.id/id/nik",
                                       "value": ctx["nik"]})
+    # OpenEMR maps only a name with use=official to first/last name fields.
+    if target_system == "openemr" and out.get("name"):
+        if not any((n or {}).get("use") == "official" for n in out["name"]):
+            out["name"][0]["use"] = "official"
     return out
 
 
@@ -57,6 +61,15 @@ def transform_encounter(resource: dict, target_system: str, ctx: dict) -> dict:
 def transform_observation(resource: dict, target_system: str, ctx: dict) -> dict:
     out = copy.deepcopy(resource)
     _rewrite_subject(out, ctx)
+    # OpenEMR needs Observation.category to route the write to the right store.
+    if target_system == "openemr" and not out.get("category"):
+        out["category"] = [{
+            "coding": [{
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "vital-signs",
+                "display": "Vital Signs",
+            }]
+        }]
     # Map code to LOINC via fixed table when a known concept key is present.
     code = out.get("code", {})
     raw = None

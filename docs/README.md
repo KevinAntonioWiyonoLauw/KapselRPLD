@@ -17,6 +17,7 @@ Indeks dokumen. Mulai dari `README` di root repo untuk quickstart, lalu pilih do
 | [configuration.md](configuration.md) | Semua environment variable + cara beralih ke EHR/SATUSEHAT nyata |
 | [testing.md](testing.md) | Suite test (20 unit + 7 integration + 3 e2e = 30) + matriks TC + bukti sandbox |
 | [satusehat-integration.md](satusehat-integration.md) | Flow SATUSEHAT R4 nyata, rule number wajib, transaction Bundle |
+| [openemr-real-integration.md](openemr-real-integration.md) | Menjalankan & temuan integrasi OpenEMR nyata (FHIR + SMART OAuth2) |
 | [ROADMAP.md](ROADMAP.md) | Peta jalan & status per area |
 | [RENCANA-PENGEMBANGAN.md](RENCANA-PENGEMBANGAN.md) | Backlog fitur terprioritas (P0/P1/P2) + acceptance |
 
