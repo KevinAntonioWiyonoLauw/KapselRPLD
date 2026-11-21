@@ -1,8 +1,7 @@
 # AUDIT KESESUAIAN PROYEK TERHADAP PROPOSAL
-## Middleware Interoperabilitas HL7 FHIR — OpenMRS / OpenEMR / SATUSEHAT
+## Middleware Interoperabilitas HL7 FHIR - OpenMRS / OpenEMR / SATUSEHAT
 
-> Sumber acuan: `docs/Proposal_Kapsel_RPLD.txt` (proposal lengkap).
-> Metode: setiap requirement proposal dipetakan ke implementasi nyata di repo, dengan **bukti path/file**.
+> Metode: setiap requirement dipetakan ke implementasi nyata di repo, dengan **bukti path/file**.
 > Legenda status: **✅ Sesuai** · **◑ Sebagian** · **✗ Belum**.
 > Diperbarui: hasil audit + implementasi terkini.
 
