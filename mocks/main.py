@@ -9,6 +9,7 @@ SATUSEHAT endpoints never collide with the EHR endpoints.
 """
 from __future__ import annotations
 
+import json
 import os
 import uuid
 from datetime import datetime, timezone
@@ -19,6 +20,8 @@ from fastapi.responses import JSONResponse
 
 MOCK_ROLE = os.environ.get("MOCK_ROLE", "ehr")
 MOCK_PORT = int(os.environ.get("MOCK_PORT", "8100"))
+# Optional file-backed persistence. Empty = in-memory only (default, used by tests).
+PERSIST_DIR = os.environ.get("MOCK_PERSIST_DIR", "").strip()
 
 app = FastAPI(title=f"mock-{MOCK_ROLE}")
 
@@ -28,6 +31,42 @@ STORE: dict[tuple[str, str], dict[str, dict]] = {}
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _persist_path(base: str, rtype: str) -> str:
+    return os.path.join(PERSIST_DIR, f"{base}__{rtype}.json")
+
+
+def _persist(base: str, rtype: str) -> None:
+    """Write one store bucket to disk atomically (no-op when persistence off)."""
+    if not PERSIST_DIR:
+        return
+    os.makedirs(PERSIST_DIR, exist_ok=True)
+    path = _persist_path(base, rtype)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(STORE.get((base, rtype), {}), fh)
+    os.replace(tmp, path)
+
+
+def _load_all() -> None:
+    """Restore all persisted buckets on startup (no-op when persistence off)."""
+    if not PERSIST_DIR or not os.path.isdir(PERSIST_DIR):
+        return
+    for name in os.listdir(PERSIST_DIR):
+        if not name.endswith(".json") or "__" not in name:
+            continue
+        base, rtype = name[:-5].split("__", 1)
+        try:
+            with open(os.path.join(PERSIST_DIR, name), encoding="utf-8") as fh:
+                STORE[(base, rtype)] = json.load(fh)
+        except (OSError, ValueError):
+            continue
+
+
+@app.on_event("startup")
+def _startup() -> None:
+    _load_all()
 
 
 def _store(base: str, rtype: str) -> dict[str, dict]:
@@ -111,6 +150,7 @@ def _build_ehr_router(base: str) -> APIRouter:
         resource["id"] = rid
         resource.setdefault("meta", {})["lastUpdated"] = _now()
         _store(base, rtype)[rid] = resource
+        _persist(base, rtype)
         return JSONResponse(resource, status_code=201)
 
     @router.put("/{rtype}/{rid}")
@@ -124,6 +164,7 @@ def _build_ehr_router(base: str) -> APIRouter:
         resource["id"] = rid
         resource.setdefault("meta", {})["lastUpdated"] = _now()
         _store(base, rtype)[rid] = resource
+        _persist(base, rtype)
         return resource
 
     return router
@@ -221,6 +262,7 @@ async def ss_transaction(request: Request):
         res = entry.get("resource", {})
         _rewrite(res)
         _store("satusehat", res["resourceType"])[res["id"]] = res
+        _persist("satusehat", res["resourceType"])
         entries.append({"response": {"status": "201 Created",
                                      "location": f"{res['resourceType']}/{res['id']}"}})
     return JSONResponse({"resourceType": "Bundle", "type": "transaction-response", "entry": entries},
@@ -258,6 +300,7 @@ async def ss_create(rtype: str, request: Request):
     resource["id"] = rid
     resource.setdefault("meta", {})["lastUpdated"] = _now()
     _store("satusehat", rtype)[rid] = resource
+    _persist("satusehat", rtype)
     return JSONResponse(resource, status_code=201)
 
 
