@@ -29,6 +29,11 @@ def _get_or_create_system(db, name, **kw) -> ExternalSystem:
         s = ExternalSystem(name=name, **kw)
         db.add(s)
         db.flush()
+    else:
+        # Refresh mutable fields so re-seeding reflects the current mode/config
+        # (e.g. mock <-> real base URLs), keeping the dashboard display accurate.
+        for k, v in kw.items():
+            setattr(s, k, v)
     return s
 
 
