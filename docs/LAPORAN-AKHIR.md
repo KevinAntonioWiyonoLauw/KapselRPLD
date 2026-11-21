@@ -210,7 +210,7 @@ Analisis sistem → Perencanaan infra → Perancangan arsitektur → Persiapan i
 
 > Catatan: angka success rate agregat pada DB demo dapat < 100% karena skenario uji **sengaja** memicu `needs_review` (konflik/validasi/identitas). Pada batch valid, success rate 100%.
 
-**4.3.4 Test otomatis:** unit 47 · integration 12 · e2e 3 = **62 lulus** (`scripts/test-all.ps1`, CI `.github/workflows/ci.yml`).
+**4.3.4 Test otomatis:** unit 81 · integration 19 · e2e 3 = **103 lulus** + dashboard **5** Playwright (`scripts/test-all.ps1`, CI `.github/workflows/ci.yml`).
 
 ## 4.4 Perancangan Desain Sistem
 **4.4.1 Aktor** — Operator/Admin, OpenMRS, OpenEMR, SATUSEHAT, Scheduler/Worker. ✅
