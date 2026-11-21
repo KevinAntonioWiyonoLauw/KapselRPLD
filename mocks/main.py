@@ -70,6 +70,9 @@ def _match(resource: dict, params: dict) -> bool:
         elif key == "patient":
             if (resource.get("subject") or {}).get("reference") != f"Patient/{val}":
                 return False
+        elif key == "date":
+            if (resource.get("effectiveDateTime") or resource.get("issued")) != val:
+                return False
     return True
 
 
