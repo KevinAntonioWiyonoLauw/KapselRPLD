@@ -1,4 +1,7 @@
-node_modules
-.next
-out
-npm-debug.log*
+node_modules/
+.next/
+out/
+playwright-report/
+test-results/
+e2e/
+playwright.config.ts

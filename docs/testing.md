@@ -7,6 +7,7 @@
 | Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, openmrs transform, profile-gate, inbound helpers, ssrme, security middleware, audit fixes) | `backend/tests/unit` | 67 | ✅ lulus |
 | Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline, openmrs pipeline, satusehat condition, profile-gate DB, inbound policy DB, migrations) | `backend/tests/integration` | 19 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
+| Dashboard e2e + a11y (Playwright + axe) | `frontend/e2e` | 5 | ✅ lulus |
 
 Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 
@@ -48,6 +49,17 @@ docker run --rm --network kapselrpld_default -v "$PWD/backend:/app" -v "$PWD/moc
   -w /app kapselrpld-backend:latest \
   sh -c "pip install -q pytest pytest-asyncio pytest-cov && \
          python -m pytest tests/unit tests/integration --cov=app --cov-report=term --cov-fail-under=50"
+```
+
+## Dashboard e2e + accessibility (Playwright)
+Suite `frontend/e2e` (job CI `e2e-dashboard`) menjalankan 5 test terhadap dashboard
+yang berjalan: load + 6 tab, navigasi tab + pagination, dark mode (toggle + persist
+lintas reload), login role badge, dan **axe-core** (gagal bila ada pelanggaran
+serious/critical). Jalankan lokal:
+```bash
+cd frontend
+npm install && npx playwright install chromium
+DASHBOARD_URL=http://localhost:3000 npx playwright test
 ```
 
 ## Bukti SATUSEHAT Sandbox Nyata

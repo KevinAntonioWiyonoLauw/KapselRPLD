@@ -436,9 +436,9 @@ export default function Home() {
               <span
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium",
-                  role === "admin" && "border-primary/40 bg-primary/10 text-primary",
-                  role === "operator" && "border-amber-500/40 bg-amber-500/10 text-amber-700",
-                  role === "viewer" && "border-border bg-muted text-muted-foreground"
+                  role === "admin" && "border-primary/50 bg-primary/10 text-foreground",
+                  role === "operator" && "border-amber-500/50 bg-amber-500/10 text-foreground",
+                  role === "viewer" && "border-border bg-muted text-foreground"
                 )}
                 aria-label={`Peran saat ini: ${role}`}
               >
