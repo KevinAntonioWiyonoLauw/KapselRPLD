@@ -1,0 +1,16 @@
+# Production-oriented overlay (opt-in). Adds a TLS-terminating reverse proxy.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tls up -d
+# Caddy uses its internal CA for a local self-signed cert; replace with real certs
+# (or a managed proxy) in real production.
+services:
+  caddy:
+    image: caddy:2-alpine
+    profiles: ["tls"]
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
