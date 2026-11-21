@@ -14,11 +14,13 @@ import {
   Link2,
   ListChecks,
   Loader2,
+  Moon,
   PlugZap,
   RefreshCw,
   Search,
   Server,
   ShieldCheck,
+  Sun,
   Timer,
 } from "lucide-react";
 import {
@@ -121,6 +123,7 @@ export default function Home() {
   const [token, setToken] = useState("change_me_admin_token");
   const [role, setRole] = useState<string>("");
   const canOperate = role === "admin" || role === "operator";
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   const [tab, setTab] = useState("overview");
   const [metrics, setMetrics] = useState<any>(null);
   const [systems, setSystems] = useState<any[]>([]);
@@ -189,6 +192,20 @@ export default function Home() {
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  // Theme: read the class set by the pre-paint script, then keep in sync.
+  useEffect(() => {
+    setTheme(document.documentElement.classList.contains("dark") ? "dark" : "light");
+  }, []);
+
+  function toggleTheme() {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.classList.toggle("dark", next === "dark");
+    try {
+      localStorage.setItem("theme", next);
+    } catch {}
+  }
 
   async function checkConn(name: string) {
     setCheckState((prev) => ({ ...prev, [name]: { status: "loading" } }));
@@ -436,6 +453,20 @@ export default function Home() {
             >
               <RefreshCw className={cn("mr-2 h-4 w-4", loading && "animate-spin")} aria-hidden="true" />
               Muat ulang
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={toggleTheme}
+              className="min-h-[44px] w-11 sm:min-h-9"
+              aria-label={theme === "dark" ? "Aktifkan mode terang" : "Aktifkan mode gelap"}
+              title={theme === "dark" ? "Mode terang" : "Mode gelap"}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Moon className="h-4 w-4" aria-hidden="true" />
+              )}
             </Button>
           </div>
         </div>
