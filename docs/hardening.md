@@ -42,8 +42,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml --profile tls up
 Akses API via `https://localhost:8443`.
 
 ## 6. Rate limiting
-- `RATE_LIMIT_PER_MINUTE` membatasi request `/api/*` per IP (in-memory).
-- Untuk multi-instance, gunakan shared store (Redis) — lihat issue #15.
+- `RATE_LIMIT_PER_MINUTE` membatasi request `/api/*` per IP.
+- `RATE_LIMIT_BACKEND=memory` (default): sliding window per-proses (cukup single instance).
+- `RATE_LIMIT_BACKEND=redis`: fixed-window counter **shared lintas instance** (via
+  `REDIS_URL`), agar limit tetap berlaku di belakang load balancer / multi-replica.
+  Service `redis` disediakan di `docker-compose.yml`. Bila Redis tak terjangkau,
+  middleware **fail-open** (mengizinkan request) + log warning, sehingga API tidak tumbang.
 
 ## Verifikasi
 ```bash

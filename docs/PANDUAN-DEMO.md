@@ -198,4 +198,4 @@ docker compose exec backend python seed.py
 - [ ] Skenario C: dua arah + konflik tercatat.
 - [ ] Skenario D: SATUSEHAT sandbox 201 Created (probe & otomatis).
 - [ ] Skenario E: failed_temp → success.
-- [ ] Skenario F: 93 test passed.
+- [ ] Skenario F: 97 test passed.

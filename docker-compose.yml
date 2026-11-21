@@ -48,6 +48,18 @@ services:
     ports:
       - "3500:3500"
 
+  # Shared store for multi-instance rate limiting (#15). Optional: the app uses
+  # in-memory limiting unless RATE_LIMIT_BACKEND=redis.
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   backend:
     build: ./backend
     image: kapselrpld-backend:latest
@@ -68,6 +80,8 @@ services:
         condition: service_started
       hapi-validator:
         condition: service_started
+      redis:
+        condition: service_healthy
 
   worker:
     build: ./backend
