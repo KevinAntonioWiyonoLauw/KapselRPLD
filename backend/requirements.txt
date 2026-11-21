@@ -8,3 +8,4 @@ pydantic-settings>=2.5,<3
 apscheduler>=3.10,<4
 python-dotenv>=1.0,<2
 alembic>=1.13,<2
+prometheus-client>=0.20,<1
