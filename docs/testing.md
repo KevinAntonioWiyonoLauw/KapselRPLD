@@ -4,8 +4,8 @@
 
 | Suite | Lokasi | Jumlah | Status |
 |-------|--------|--------|--------|
-| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, audit fixes) | `backend/tests/unit` | 46 | ✅ lulus |
-| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency) | `backend/tests/integration` | 11 | ✅ lulus |
+| Unit (transform, validation, terminology, idempotency, satusehat_builder, conflict-version, observation-key, error-normalization, openemr adapter, audit fixes) | `backend/tests/unit` | 47 | ✅ lulus |
+| Integration (adapter → mock, error-classification, conflict-version DB, observation idempotency, openemr pipeline) | `backend/tests/integration` | 12 | ✅ lulus |
 | End-to-end (API, dua arah, konflik) | `backend/tests/e2e` | 3 | ✅ lulus |
 
 Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
@@ -31,11 +31,11 @@ Cara jalankan: `scripts/test-all.ps1` (lihat `docs/runbook.md`).
 ## Cakupan per suite
 | Suite | Jumlah | Cakupan |
 |-------|--------|---------|
-| Unit | 46 | transform (termasuk aturan OpenEMR), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder, conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3) |
-| Integration | 11 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) |
+| Unit | 47 | transform (termasuk aturan OpenEMR), validation, terminologi, idempotency (termasuk Observation subject+code+effective), satusehat_builder, conflict-version (F4), normalisasi error (OperationOutcome), normalisasi adapter OpenEMR, identifier-priority (F3) |
+| Integration | 12 | adapter→mock + error-classification F2 + conflict-version F4 (DB) + observation idempotency (DB) + openemr pipeline (Encounter→Observation) |
 | E2E | 3 | health, Patient OpenMRS→OpenEMR, conflict detection |
 
-> Total **60 test lulus** (46 + 11 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
+> Total **62 test lulus** (47 + 12 + 3). Lihat `docs/AUDIT.md` untuk status perbaikan temuan audit (F1–F4).
 
 ## Bukti SATUSEHAT Sandbox Nyata
 Selain mock, integrasi **sungguhan ke sandbox SATUSEHAT** telah dijalankan dan lulus:

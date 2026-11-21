@@ -53,6 +53,8 @@ Catat **Client ID** dan **Client Secret** dari output.
 |-----|--------------|------------|
 | Nama pasien | OpenEMR hanya memetakan `name` dengan `use="official"` ke fname/lname; tanpa itu -> `First/Last Name must not be empty`. | `transform.transform_patient(..., "openemr")` menambahkan `use=official`. |
 | Observation | Butuh `Observation.category` untuk routing penyimpanan; tanpa itu -> `Observation.category is required to route a write`. | `transform.transform_observation(..., "openemr")` menambahkan `category=vital-signs`. |
+| Observation.encounter | OpenEMR menyimpan Observation sebagai *encounter form*; tanpa referensi Encounter -> `Observation.encounter must reference an Encounter`. | Pipeline menyimpan mapping Encounter (saat Encounter sukses) lalu mengisi `Observation.encounter` dengan target ref (`_encounter_target_ref`). |
+| Pencarian Observation | OpenEMR menolak parameter `subject` pada Observation (HTTP 400). | `_search_params(..., "openemr")` mengosongkan pencarian (create-only untuk OpenEMR). |
 | Respons create | Bukan resource FHIR standar: Patient `{"pid":2,"uuid":"..."}`, Encounter `{"eid":2,"euuid":"..."}`, Observation `{"uuid":"..."}`. | `OpenEMRAdapter.create()` menormalkan ke `{resourceType, id, meta.lastUpdated}` (id dari `uuid`/`euuid`). |
 | Base URL | `/apis/default/fhir` | `OPENEMR_FHIR_BASE_URL` |
 | Token URL | `/oauth2/default/token` | `OPENEMR_TOKEN_URL` |
@@ -98,3 +100,14 @@ PROBE_OPENEMR_OK
 OpenMRS (reference app, JVM) butuh **~2.5-3 GB RAM** tambahan dan boot 5-10 menit.
 Adapter `openmrs` sudah ada (Basic auth, `/ws/fhir2/R4`) tetapi uji runtime nyata
 belum dilakukan pada mesin dengan resource terbatas. Lihat issue #6.
+
+## 9. Pipeline end-to-end via worker (terbukti)
+
+Selain `probe_openemr.py` (memanggil adapter langsung), jalur **worker sungguhan**
+juga diverifikasi dengan `OPENEMR_MODE=real`:
+
+1. Enqueue via Management API: `POST /api/v1/jobs/enqueue` (source `openmrs` -> target `openemr`) untuk Patient, lalu Encounter, lalu Observation (dengan `encounter` merujuk Encounter sumber).
+2. Worker memproses ketiganya -> **semua `success`**.
+3. Verifikasi di OpenEMR: baris `patient_data` (fname/lname) dibuat, **`form_vitals`** berisi 1 baris (Observation mendarat), dan `identifier_mapping` menyimpan pemetaan **Patient + Encounter**.
+
+Catatan: karena Observation OpenEMR bersifat **create-only** (tanpa pencarian `subject`), dedup untuk OpenEMR mengandalkan `idempotency_key` di sisi middleware; sedangkan target yang mendukung pencarian (mis. OpenMRS) memakai kunci bisnis `subject+code+effective`.

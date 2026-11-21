@@ -165,7 +165,7 @@ def _observation_key(resource: dict) -> dict:
     return params
 
 
-def _search_params(resource: dict) -> dict:
+def _search_params(resource: dict, target: str | None = None) -> dict:
     rtype = resource["resourceType"]
     if rtype == "Patient":
         val = _identifier_value(resource)
@@ -174,6 +174,10 @@ def _search_params(resource: dict) -> dict:
         ref = (resource.get("subject") or {}).get("reference", "")
         return {"subject": ref} if ref else {}
     if rtype == "Observation":
+        # OpenEMR rejects the `subject` search param on Observation; skip search
+        # (create-only) for that target. Other targets use the de-dup business key.
+        if target == "openemr":
+            return {}
         # F7/idempotency: subject + code + effective (append-only de-dup key)
         return _observation_key(resource)
     return {}
@@ -345,6 +349,22 @@ def _encounter_source_id(resource: dict) -> str | None:
     return ref.split("/")[-1] if ref else None
 
 
+def _encounter_target_ref(db: Session, job: SyncJob, resource: dict, source, target) -> str | None:
+    """Resolve the target Encounter reference for an Observation via mapping.
+
+    OpenEMR requires Observation.encounter; the source Encounter id must be mapped
+    to the target Encounter id during the Encounter sync.
+    """
+    src_enc = _encounter_source_id(resource)
+    if not src_enc:
+        return None
+    m = identity.resolve(db, resource_type="Encounter", source_system_id=source.id,
+                         target_system_id=target.id, source_identifier=src_enc)
+    if m is None:
+        return None
+    return f"Encounter/{m.target_identifier}"
+
+
 def _icd_from_resource(resource: dict) -> tuple[str | None, str | None]:
     """Extract an ICD-10 diagnosis from the source Encounter payload if present.
 
@@ -441,6 +461,12 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
             else:
                 ctx["patient_ref"] = f"Patient/{mapping.target_identifier}"
 
+        # OpenEMR stores Observations as encounter forms -> need the target Encounter ref.
+        if target.name == "openemr" and job.resource_type == "Observation":
+            enc_ref = _encounter_target_ref(db, job, resource, source, target)
+            if enc_ref:
+                ctx["encounter_ref"] = enc_ref
+
         # 2. Transform for target profile
         transformed = transform.transform(resource, target.name, ctx)
 
@@ -465,7 +491,7 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
 
         # 4. Look up existing resource in target (idempotency + conflict detection)
         target_adapter = get_adapter(target.name)
-        params = _search_params(transformed)
+        params = _search_params(transformed, target.name)
         if params:
             sr = await target_adapter.search(job.resource_type, params)
             if sr.ok and sr.bundle and sr.bundle.get("total", 0) > 0:
@@ -556,6 +582,14 @@ async def process_job(db: Session, job: SyncJob) -> SyncJob:
                                             target_system_id=source.id, source_identifier=new_id,
                                             target_identifier=src_pid, validation_status="verified")
                     _record_sync_baselines(db, job, resource, (result.resource.get("meta") or {}).get("lastUpdated"))
+            # Store Encounter mapping so dependent Observations can reference it.
+            if job.resource_type == "Encounter" and result.resource and result.resource.get("id"):
+                identity.upsert_mapping(
+                    db, resource_type="Encounter", source_system_id=source.id,
+                    target_system_id=target.id, source_identifier=job.source_resource_id,
+                    target_identifier=result.resource["id"], identifier_type="local",
+                    validation_status="verified")
+                _record_sync_baselines(db, job, resource, (result.resource.get("meta") or {}).get("lastUpdated"))
             job.status = "success"
             job.last_error = None
             record("success", http_status=result.http_status)

@@ -10,7 +10,7 @@ import pytest
 
 from app.adapters.base import AdapterResult
 from app.services import sync
-from app.models import IdentifierMapping, SyncJob
+from app.models import SyncJob
 
 
 class FakeObsAdapter:
@@ -37,7 +37,9 @@ class FakeObsAdapter:
 
 def _mk_job(db, obs):
     src = sync.get_system(db, "openmrs")
-    tgt = sync.get_system(db, "openemr")
+    # Target a search-capable system (openmrs) so search-before-create de-dup applies.
+    # (OpenEMR Observations are create-only, handled separately.)
+    tgt = sync.get_system(db, "openmrs")
     job = SyncJob(resource_type="Observation", source_system_id=src.id, target_system_id=tgt.id,
                   source_resource_id="enc-1", idempotency_key=f"obs-{uuid.uuid4().hex}",
                   status="pending", payload_ref=json.dumps(obs))
@@ -57,14 +59,6 @@ async def test_identical_observation_not_duplicated(db_session):
         "effectiveDateTime": "2026-03-01T09:00:00Z",
         "valueQuantity": {"value": 80, "unit": "/min"},
     }
-    # Observation -> OpenEMR needs a verified Patient mapping for subject resolution.
-    src = sync.get_system(db_session, "openmrs")
-    tgt = sync.get_system(db_session, "openemr")
-    db_session.add(IdentifierMapping(
-        resource_type="Patient", source_system_id=src.id, target_system_id=tgt.id,
-        source_identifier=pid, target_identifier=pid, validation_status="verified"))
-    db_session.commit()
-
     fake = FakeObsAdapter()
     orig = sync.get_adapter
     sync.get_adapter = lambda name: fake
