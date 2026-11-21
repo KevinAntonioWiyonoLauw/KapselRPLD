@@ -26,11 +26,12 @@ class OpenMRSAdapter(HttpFhirAdapter):
         self._pw = settings.openmrs_password
 
     def _headers(self) -> dict:
+        base = {"Accept": "application/fhir+json", "Content-Type": "application/fhir+json"}
         if self._auth == "basic":
             import base64
             token = base64.b64encode(f"{self._user}:{self._pw}".encode()).decode()
-            return {"Authorization": f"Basic {token}", "Accept": "application/fhir+json"}
-        return {"Accept": "application/fhir+json"}
+            base["Authorization"] = f"Basic {token}"
+        return base
 
     async def check_connectivity(self) -> AdapterResult:
         return await self.get_capability()
